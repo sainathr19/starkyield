@@ -42,6 +42,8 @@ if (typeof window !== 'undefined') {
 
 const factory = new SwapperFactory<[StarknetInitializerType]>([StarknetInitializer]);
 const Tokens = factory.Tokens;
+const STARKNET_RPC_URL =
+    process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? '';
 
 export default function SwapPage() {
     const chainData = useContext(ChainDataContext);
@@ -55,7 +57,7 @@ export default function SwapPage() {
         connected: globalConnected,
     } = useWallet();
 
-    const [starknetRpcUrl] = useState<string>('https://starknet-sepolia.public.blastapi.io/rpc/v0_8');
+    const [starknetRpcUrl] = useState<string>(STARKNET_RPC_URL);
     const [amountBtc, setAmountBtc] = useState<string>('');
     const [dstToken, setDstToken] = useState<'ETH' | 'STRK' | 'WBTC'>('ETH');
     const [isInitializing, setIsInitializing] = useState<boolean>(false);

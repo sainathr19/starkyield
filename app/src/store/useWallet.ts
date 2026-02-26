@@ -33,9 +33,19 @@ export interface PendingDeposit {
   atomiqSwapId: string | null;
 }
 
+export interface StakeHistoryItem {
+  id: string;
+  txHash: string;
+  explorerUrl: string;
+  poolAddress: string;
+  tokenSymbol: string;
+  amount: string;
+  createdAt: string;
+}
+
 const BITCOIN_NETWORK = BitcoinNetwork.TESTNET4;
 const BITCOIN_RPC_URL = "https://mempool.space/testnet4/api";
-const STARKNET_RPC_URL = "https://starknet-sepolia.public.blastapi.io/rpc/v0_8";
+const STARKNET_RPC_URL = process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? "";
 // const STARKNET_CHAIN_ID = '0x534e5f5345504f4c4941'; // SN_SEPOLIA
 
 type WalletState = {
@@ -48,6 +58,7 @@ type WalletState = {
   connected: boolean;
   selectedBtcWallet: "xverse" | "unisat";
   setSelectedBtcWallet: (w: "xverse" | "unisat") => void;
+  hasStarknetConnected: boolean;
 
   // addresses
   bitcoinPaymentAddress: string | null;
@@ -65,6 +76,7 @@ type WalletState = {
 
   // pending deposits
   pendingDeposits: PendingDeposit[];
+  stakeHistory: StakeHistoryItem[];
 
   // actions
   detectProviders: () => void;
@@ -80,6 +92,9 @@ type WalletState = {
   addPendingDeposit: (deposit: PendingDeposit) => void;
   removePendingDeposit: (depositId: string) => void;
   updatePendingDeposit: (depositId: string, updates: Partial<PendingDeposit>) => void;
+  setStarknetBalance: (balance: NumericString | null) => void;
+  addStakeHistory: (item: StakeHistoryItem) => void;
+  clearStakeHistory: () => void;
 };
 
 async function fetchBitcoinBalanceSats(
@@ -166,6 +181,7 @@ export const useWallet = create<WalletState>()(
       isConnecting: false,
       connected: false,
       selectedBtcWallet: "xverse",
+      hasStarknetConnected: false,
       bitcoinPaymentAddress: null,
       bitcoinOrdinalsAddress: null,
       stacksAddress: null,
@@ -175,6 +191,7 @@ export const useWallet = create<WalletState>()(
       starknetWalletName: null,
       balances: {},
       pendingDeposits: [],
+      stakeHistory: [],
 
       detectProviders: () => {
         if (typeof window === "undefined") return;
@@ -214,6 +231,7 @@ export const useWallet = create<WalletState>()(
               starknetAddress: starknet,
               bitcoinPublicKeyHex: typeof pubkey === "string" ? pubkey : null,
               connected: Boolean(payment),
+              hasStarknetConnected: Boolean(starknet),
             });
             await get().refreshBalances();
           } else {
@@ -322,6 +340,7 @@ export const useWallet = create<WalletState>()(
           set({
             starknetAddress: walletAccount.address,
             starknetWalletName: swo.name,
+            hasStarknetConnected: Boolean(walletAccount.address),
             connected: Boolean(
               walletAccount.address && get().bitcoinPaymentAddress
             ),
@@ -354,6 +373,7 @@ export const useWallet = create<WalletState>()(
           bitcoinPublicKeyHex: null,
           bitcoinWalletType: null,
           starknetWalletName: null,
+          hasStarknetConnected: false,
           balances: {},
         });
       },
@@ -375,6 +395,7 @@ export const useWallet = create<WalletState>()(
         set({
           starknetAddress: null,
           starknetWalletName: null,
+          hasStarknetConnected: false,
           connected: Boolean(get().bitcoinPaymentAddress),
         });
       },
@@ -444,6 +465,22 @@ export const useWallet = create<WalletState>()(
           ),
         }));
       },
+
+      setStarknetBalance: (balance: NumericString | null) => {
+        set((state) => ({
+          balances: { ...state.balances, starknet: balance },
+        }));
+      },
+
+      addStakeHistory: (item: StakeHistoryItem) => {
+        set((state) => ({
+          stakeHistory: [item, ...state.stakeHistory].slice(0, 100),
+        }));
+      },
+
+      clearStakeHistory: () => {
+        set({ stakeHistory: [] });
+      },
     }),
     {
       name: "wallet-store",
@@ -451,6 +488,7 @@ export const useWallet = create<WalletState>()(
         isXverseAvailable: state.isXverseAvailable,
         isUniSatAvailable: state.isUniSatAvailable,
         selectedBtcWallet: state.selectedBtcWallet,
+        hasStarknetConnected: state.hasStarknetConnected,
         connected: state.connected,
         bitcoinPaymentAddress: state.bitcoinPaymentAddress,
         bitcoinOrdinalsAddress: state.bitcoinOrdinalsAddress,
@@ -461,6 +499,7 @@ export const useWallet = create<WalletState>()(
         starknetWalletName: state.starknetWalletName,
         balances: state.balances,
         pendingDeposits: state.pendingDeposits,
+        stakeHistory: state.stakeHistory,
       }),
     }
   )

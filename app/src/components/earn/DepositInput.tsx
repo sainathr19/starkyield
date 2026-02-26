@@ -24,7 +24,7 @@ if (typeof window !== "undefined") {
   const originalFetch = window.fetch;
   window.fetch = function (
     input: RequestInfo | URL,
-    init?: RequestInit
+    init?: RequestInit,
   ): Promise<Response> {
     const url =
       typeof input === "string"
@@ -48,6 +48,7 @@ const factory = new SwapperFactory<[StarknetInitializerType]>([
   StarknetInitializer,
 ]);
 const Tokens = factory.Tokens;
+const STARKNET_RPC_URL = process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? "";
 
 interface DepositInputProps {
   poolData?: any;
@@ -68,7 +69,7 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
     addPendingDeposit,
     updatePendingDeposit,
     removePendingDeposit,
-    fetchPendingDeposits
+    fetchPendingDeposits,
   } = useWallet();
 
   const [amountBtc, setAmountBtc] = useState<string>("");
@@ -86,7 +87,7 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
   const [swapState, setSwapState] = useState<number>(0);
   const [btcBalance, setBtcBalance] = useState<number | null>(null);
 
-  const starknetRpcUrl = "https://starknet-sepolia.public.blastapi.io/rpc/v0_8";
+  const starknetRpcUrl = STARKNET_RPC_URL;
   const btcNetwork = BitcoinNetwork.TESTNET4;
 
   // Get collateral assets from pool data
@@ -113,7 +114,7 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
         if (!cancelled)
           console.error(
             "❌ ===== SWAPPER INITIALIZATION FAILED =====",
-            e?.message
+            e?.message,
           );
       } finally {
         if (!cancelled) setIsInitializing(false);
@@ -136,7 +137,7 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
             asset.coingeckoId === "bitcoin" ||
             asset.coingeckoId === "wrapped-bitcoin" ||
             asset.symbol === "BTC" ||
-            asset.symbol === "WBTC"
+            asset.symbol === "WBTC",
         );
 
         setBtcPrice(btcAsset.price);
@@ -171,7 +172,8 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
 
     // Find pending deposit for this pool
     const pendingDeposit = pendingDeposits.find(
-      (deposit) => deposit.poolId === poolId || deposit.targetAddress === poolId
+      (deposit) =>
+        deposit.poolId === poolId || deposit.targetAddress === poolId,
     );
 
     if (pendingDeposit) {
@@ -179,7 +181,7 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
 
       // Restore selected asset
       const restoredAsset = collateralAssets.find(
-        (asset: any) => asset.address === pendingDeposit.token
+        (asset: any) => asset.address === pendingDeposit.token,
       );
       if (restoredAsset) {
         setSelectedAsset(restoredAsset);
@@ -215,7 +217,7 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
 
       try {
         const res = await fetch(
-          `https://mempool.space/testnet4/api/address/${bitcoinPaymentAddress}`
+          `https://mempool.space/testnet4/api/address/${bitcoinPaymentAddress}`,
         );
         const data = await res.json();
 
@@ -296,7 +298,7 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
         if (amountValue < MIN_BTC) {
           const errorMsg = `Please enter an amount between ${MIN_BTC} BTC and ${MAX_BTC} BTC`;
           setQuoteError(errorMsg);
-          addToast(errorMsg, 'warning', 7000);
+          addToast(errorMsg, "warning", 7000);
           setQuote(null);
           return;
         }
@@ -304,7 +306,7 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
         if (amountValue > MAX_BTC) {
           const errorMsg = `Maximum amount is ${MAX_BTC} BTC per transaction`;
           setQuoteError(errorMsg);
-          addToast(errorMsg, 'error', 7000);
+          addToast(errorMsg, "error", 7000);
           setQuote(null);
           return;
         }
@@ -328,20 +330,20 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
           true,
           bitcoinPaymentAddress!,
           starknetAddress!,
-          {}
+          {},
         );
 
         setQuote(quoteData);
         setQuoteAmount(
-          Number(quoteData.getOutput().amount) * 10 ** token.decimals
+          Number(quoteData.getOutput().amount) * 10 ** token.decimals,
         );
       } catch (e: any) {
         console.error("Failed to get quote:", e?.message);
-        const errorMsg = e?.message?.includes('amount')
+        const errorMsg = e?.message?.includes("amount")
           ? `Invalid amount. Please enter between 0.00003 BTC and 0.0005 BTC`
-          : e?.message || 'Failed to get quote. Please try again.';
+          : e?.message || "Failed to get quote. Please try again.";
         setQuoteError(errorMsg);
-        addToast(errorMsg, 'error', 7000);
+        addToast(errorMsg, "error", 7000);
         setQuote(null);
       } finally {
         setIsGettingQuote(false);
@@ -367,7 +369,7 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
     // Check if wallet instances are properly available
     if (!bitcoinChainData?.wallet?.instance) {
       const reconnect = confirm(
-        "Bitcoin wallet instance not available. Would you like to reconnect your Bitcoin wallet?"
+        "Bitcoin wallet instance not available. Would you like to reconnect your Bitcoin wallet?",
       );
       if (reconnect && bitcoinChainData?.connect) {
         try {
@@ -383,7 +385,7 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
 
     if (!starknetChainData?.wallet?.instance) {
       const reconnect = confirm(
-        "Starknet wallet instance not available. Would you like to reconnect your Starknet wallet?"
+        "Starknet wallet instance not available. Would you like to reconnect your Starknet wallet?",
       );
       if (reconnect && starknetChainData?.connect) {
         try {
@@ -486,12 +488,15 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
         true,
         bitcoinPaymentAddress,
         depositAddress, // Use deposit_address from API response
-        {}
+        {},
       );
 
       const swapId = swap.getId();
 
-      const result = await depositAPI.updateAtomiqSwapId(depositResult.deposit_id, swapId);
+      const result = await depositAPI.updateAtomiqSwapId(
+        depositResult.deposit_id,
+        swapId,
+      );
       console.log("Result:", result);
 
       // Update Zustand store with swapId
@@ -522,7 +527,7 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
 
       // Step 3: Send Bitcoin transaction
       const txId = await swap.sendBitcoinTransaction(
-        bitcoinChainData.wallet!.instance
+        bitcoinChainData.wallet!.instance,
       );
 
       console.log("🆔 Transaction ID:", txId);
@@ -539,14 +544,11 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
         depositTxHash: txId,
       });
 
-      // Redirect to history page
-      router.push("/history");
+      // Redirect to portfolio page
+      router.push("/portfolio");
 
       // Step 4: Wait for confirmation with progress updates
-      await swap.waitForBitcoinTransaction(
-        undefined,
-        2
-      );
+      await swap.waitForBitcoinTransaction(undefined, 2);
 
       setDepositStatus("deposited");
     } catch (e: any) {
@@ -642,7 +644,9 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
 
         <div className="flex flex-col items-center justify-center gap-2 xs:gap-2.5 w-full md:border-r border-b md:border-b-0 pb-6 xs:pb-7 md:pb-0 border-my-grey md:pr-6 xs:md:pr-7 md:pr-9 md:pl-5 xs:md:pl-6 md:pl-7">
           <div className="flex items-center justify-start w-full">
-            <span className="text-base xs:text-lg text-nowrap">Equivalent to</span>
+            <span className="text-base xs:text-lg text-nowrap">
+              Equivalent to
+            </span>
           </div>
           <div className="flex items-center justify-between w-full border-b border-my-grey pt-3 xs:pt-4">
             <span className="text-[28px] xs:text-[32px] lg:text-[36px] font-medium text-primary">
@@ -691,8 +695,16 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
           {quoteError && (
             <div className="w-full mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-start gap-2">
-                <svg className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                <svg
+                  className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 <p className="text-sm text-red-700 font-medium">{quoteError}</p>
               </div>
@@ -715,13 +727,17 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
 
         <div className="flex flex-col items-center justify-center gap-2 xs:gap-2.5 w-full md:pl-5 xs:md:pl-6 md:pl-7">
           <div className="flex items-center justify-between w-full">
-            <span className="text-base xs:text-lg text-nowrap">Monthly earnings</span>
+            <span className="text-base xs:text-lg text-nowrap">
+              Monthly earnings
+            </span>
             <span className="text-base xs:text-lg text-nowrap font-medium">
               {calculateMonthlyEarnings()}
             </span>
           </div>
           <div className="flex items-center justify-between w-full">
-            <span className="text-base xs:text-lg text-nowrap">Est. 1 yr return</span>
+            <span className="text-base xs:text-lg text-nowrap">
+              Est. 1 yr return
+            </span>
             <span className="text-base xs:text-lg text-nowrap font-medium">
               {calculateYearlyReturn()}
             </span>
@@ -732,21 +748,21 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
             className="w-full text-sm xs:text-base"
             onClick={() => {
               if (currentDepositId && depositStatus !== "deposited") {
-                // Redirect to history page to view status
-                router.push("/history");
+                // Redirect to portfolio page to view status
+                router.push("/portfolio");
               } else if (isInitializing || isSwapping) {
-                // Redirect to history page during processing
-                router.push("/history");
+                // Redirect to portfolio page during processing
+                router.push("/portfolio");
               } else {
                 handleStartEarning();
               }
             }}
             disabled={
               !connected ||
-              (isSwapping ||
-                (!isInitializing &&
-                  !currentDepositId &&
-                  (!amountBtc || !selectedAsset)))
+              isSwapping ||
+              (!isInitializing &&
+                !currentDepositId &&
+                (!amountBtc || !selectedAsset))
             }
           >
             {isSwapping

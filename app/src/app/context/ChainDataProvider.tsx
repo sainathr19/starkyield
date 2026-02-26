@@ -17,15 +17,18 @@ import {
 } from "@starknet-io/get-starknet";
 import { WalletAccount, wallet } from "starknet";
 import { useWallet } from "@/store/useWallet";
+import { getPresets } from "starkzap";
+import { InjectedStarkzapWallet } from "@/lib/staking/InjectedStarkzapWallet";
 
 const BITCOIN_NETWORK = BitcoinNetwork.TESTNET4;
 const BITCOIN_RPC_URL = "https://mempool.space/testnet4/api";
-const STARKNET_RPC_URL = "https://starknet-sepolia.public.blastapi.io/rpc/v0_8";
+const STARKNET_RPC_URL = process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? "";
 const STARKNET_CHAIN_ID = "0x534e5f5345504f4c4941"; // SN_SEPOLIA
 
 export function ChainDataProvider({ children }: { children: React.ReactNode }) {
   // Get store state
-  const { bitcoinWalletType: storeBitcoinWalletType } = useWallet();
+  const { bitcoinWalletType: storeBitcoinWalletType, setStarknetBalance } =
+    useWallet();
 
   // Bitcoin wallet state
   const [bitcoinWallet, setBitcoinWallet] = useState<
@@ -38,7 +41,7 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
 
   // Starknet wallet state
   const [starknetSigner, setStarknetSigner] = useState<StarknetSigner | null>(
-    null
+    null,
   );
   const [starknetWalletData, setStarknetWalletData] =
     useState<StarknetWindowObject | null>(null);
@@ -83,12 +86,12 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
         if (walletType === "xverse") {
           wallet = await XverseBitcoinWallet.connect(
             BITCOIN_NETWORK,
-            BITCOIN_RPC_URL
+            BITCOIN_RPC_URL,
           );
         } else {
           wallet = await UnisatBitcoinWallet.connect(
             BITCOIN_NETWORK,
-            BITCOIN_RPC_URL
+            BITCOIN_RPC_URL,
           );
         }
 
@@ -101,7 +104,7 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
         setIsConnectingBitcoin(false);
       }
     },
-    [isConnectingBitcoin, bitcoinWallet]
+    [isConnectingBitcoin, bitcoinWallet],
   );
 
   const disconnectBitcoinWallet = useCallback(() => {
@@ -120,7 +123,7 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
 
       const walletAccount = await WalletAccount.connect(
         new RpcProviderWithRetries({ nodeUrl: STARKNET_RPC_URL }),
-        swo
+        swo,
       );
 
       const chainId = await wallet.requestChainId(walletAccount.walletProvider);
@@ -168,10 +171,33 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
       await disconnect({ clearLastWallet: true });
       setStarknetSigner(null);
       setStarknetWalletData(null);
+      setStarknetBalance(null);
     } catch (error) {
       console.error("Failed to disconnect Starknet wallet:", error);
     }
-  }, []);
+  }, [setStarknetBalance]);
+
+  const refreshStrkBalance = useCallback(async () => {
+    if (!starknetSigner) {
+      setStarknetBalance(null);
+      return;
+    }
+
+    try {
+      const account = starknetSigner.account;
+      const wallet = await InjectedStarkzapWallet.fromAccount(account);
+      const presets = getPresets(wallet.getChainId());
+      const strk = presets.STRK;
+      if (!strk) {
+        setStarknetBalance(null);
+        return;
+      }
+      const balance = await wallet.balanceOf(strk);
+      setStarknetBalance(balance.toUnit());
+    } catch (error) {
+      console.error("Failed to refresh STRK balance:", error);
+    }
+  }, [setStarknetBalance, starknetSigner]);
 
   // Sync with store state - only connect if store has wallet type but we don't have wallet instance
   // IMPORTANT: Avoid auto-connecting Xverse to prevent repeated popup prompts
@@ -190,6 +216,14 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
     isConnectingBitcoin,
     connectBitcoinWallet,
   ]);
+
+  useEffect(() => {
+    refreshStrkBalance();
+    if (!starknetSigner) return;
+
+    const id = setInterval(refreshStrkBalance, 30000);
+    return () => clearInterval(id);
+  }, [refreshStrkBalance, starknetSigner]);
 
   // Prepare context value
   const contextValue = useMemo(() => {
@@ -255,7 +289,7 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
         rpcUrl: new RpcProviderWithRetries({ nodeUrl: STARKNET_RPC_URL }),
         chainId: STARKNET_CHAIN_ID,
         fees: new StarknetFees(
-          new RpcProviderWithRetries({ nodeUrl: STARKNET_RPC_URL })
+          new RpcProviderWithRetries({ nodeUrl: STARKNET_RPC_URL }),
         ),
       },
     };

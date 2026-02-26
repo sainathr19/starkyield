@@ -33,7 +33,7 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
   const short = (
     addr?: string | null,
     leading: number = 4,
-    trailing: number = 4
+    trailing: number = 4,
   ) => {
     if (!addr) return "";
     if (addr.length <= leading + trailing + 3) return addr;
@@ -50,10 +50,10 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
 
   const leftNavigationItems = [
     { label: "Earn", href: "/earn" },
-    { label: "History", href: "/history" },
+    { label: "Portfolio", href: "/portfolio" },
   ];
 
-  const rightNavigationItems = [{ label: "Portfolio", href: "/portfolio" }];
+  const rightNavigationItems: { label: string; href: string }[] = [];
 
   const allNavigationItems = [...leftNavigationItems, ...rightNavigationItems];
 
@@ -137,19 +137,19 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
             <span
               className={cn(
                 "block h-0.5 w-6 bg-black transition-all duration-300",
-                isMenuOpen && "rotate-45 translate-y-1.5"
+                isMenuOpen && "rotate-45 translate-y-1.5",
               )}
             />
             <span
               className={cn(
                 "block h-0.5 w-6 bg-black transition-all duration-300",
-                isMenuOpen && "opacity-0"
+                isMenuOpen && "opacity-0",
               )}
             />
             <span
               className={cn(
                 "block h-0.5 w-6 bg-black transition-all duration-300",
-                isMenuOpen && "-rotate-45 -translate-y-1.5"
+                isMenuOpen && "-rotate-45 -translate-y-1.5",
               )}
             />
           </div>
@@ -216,7 +216,7 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
                               "block w-full text-left text-lg font-medium transition-all duration-200",
                               isActive
                                 ? "text-gray-900 font-semibold"
-                                : "text-gray-700 hover:text-gray-900"
+                                : "text-gray-700 hover:text-gray-900",
                             )}
                           >
                             {item.label}
