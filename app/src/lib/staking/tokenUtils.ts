@@ -36,8 +36,11 @@ export function isBtcLikePool(pool: Pick<Pool, "token"> | null): boolean {
 
 export function pickPreferredStakeToken(tokens: Token[]): Token | undefined {
   if (tokens.length === 0) return undefined;
+  const stark = tokens.find((token) => {
+    const symbol = normalizeSymbol(token.symbol);
+    return symbol === "STRK" || symbol === "STARK";
+  });
+  if (stark) return stark;
   const firstBtcLike = tokens.find(isBtcLikeToken);
-  if (firstBtcLike) return firstBtcLike;
-  const strk = tokens.find((token) => normalizeSymbol(token.symbol) === "STRK");
-  return strk ?? tokens[0];
+  return firstBtcLike ?? tokens[0];
 }
