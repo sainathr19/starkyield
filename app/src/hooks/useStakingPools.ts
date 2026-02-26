@@ -8,6 +8,11 @@ import {
   getValidatorPools,
   stakingValidators,
 } from "@/lib/staking/starkzapClient";
+import {
+  isBtcLikePool,
+  isBtcLikeToken,
+  pickPreferredStakeToken,
+} from "@/lib/staking/tokenUtils";
 
 export interface UseStakingPoolsResult {
   tokens: Token[];
@@ -17,6 +22,8 @@ export interface UseStakingPoolsResult {
   selectedValidatorAddress: string;
   pools: Pool[];
   selectedPool: Pool | null;
+  hasBtcLikeTokens: boolean;
+  hasBtcLikePools: boolean;
   loading: boolean;
   error: string | null;
   setSelectedTokenAddress: (address: string) => void;
@@ -45,6 +52,14 @@ export function useStakingPools(): UseStakingPoolsResult {
       pools.find((pool) => pool.token.address === selectedToken.address) ?? null
     );
   }, [pools, selectedToken]);
+  const hasBtcLikeTokens = useMemo(
+    () => tokens.some((token) => isBtcLikeToken(token)),
+    [tokens],
+  );
+  const hasBtcLikePools = useMemo(
+    () => pools.some((pool) => isBtcLikePool(pool)),
+    [pools],
+  );
 
   const loadPools = useCallback(async () => {
     if (!selectedValidatorAddress) {
@@ -63,12 +78,13 @@ export function useStakingPools(): UseStakingPoolsResult {
       const nextTokens = await getStakeableTokens();
       setTokens(nextTokens);
 
-      if (!selectedTokenAddress) {
-        const strkToken =
-          nextTokens.find((token) => token.symbol.toUpperCase() === "STRK") ??
-          nextTokens[0];
-        if (strkToken) {
-          setSelectedTokenAddress(strkToken.address);
+      const hasCurrentToken = nextTokens.some(
+        (token) => token.address === selectedTokenAddress,
+      );
+      if (!selectedTokenAddress || !hasCurrentToken) {
+        const preferredToken = pickPreferredStakeToken(nextTokens);
+        if (preferredToken) {
+          setSelectedTokenAddress(preferredToken.address);
         }
       }
 
@@ -104,6 +120,8 @@ export function useStakingPools(): UseStakingPoolsResult {
     selectedValidatorAddress,
     pools,
     selectedPool,
+    hasBtcLikeTokens,
+    hasBtcLikePools,
     loading,
     error,
     setSelectedTokenAddress,

@@ -12,6 +12,7 @@ import { ChainDataContext } from "@/app/context/ChainDataContext";
 import { useStakingPools } from "@/hooks/useStakingPools";
 import { useStake } from "@/hooks/useStake";
 import { getAddressExplorerUrl } from "@/lib/staking/explorer";
+import { STARKNET_NETWORK } from "@/lib/staking/starkzapClient";
 import { useWallet } from "@/store/useWallet";
 
 export default function Earn() {
@@ -30,22 +31,26 @@ export default function Earn() {
     setSelectedTokenAddress,
     pools,
     selectedPool,
-    loading,
+    hasBtcLikeTokens,
+    hasBtcLikePools,
     error,
   } = useStakingPools();
   const {
     isSubmitting,
     error: stakeError,
-    strkBalance,
+    selectedTokenBalance,
     refreshBalance,
     stake,
   } = useStake();
 
   const [amount, setAmount] = useState("");
+  const selectedTokenSymbol = selectedToken?.symbol ?? "Token";
+  const showBtcStakingUnavailable =
+    STARKNET_NETWORK === "sepolia" && (!hasBtcLikeTokens || !hasBtcLikePools);
 
   const displayBalance = useMemo(() => {
-    return strkBalance ?? balances.starknet ?? null;
-  }, [balances.starknet, strkBalance]);
+    return selectedTokenBalance ?? balances.starknet ?? null;
+  }, [balances.starknet, selectedTokenBalance]);
 
   useEffect(() => {
     if (hasStarknetConnected) {
@@ -82,6 +87,12 @@ export default function Earn() {
           <p className="text-sm text-gray-600">
             Stake directly on Starknet using supported validators and pools.
           </p>
+          {showBtcStakingUnavailable && (
+            <p className="text-xs font-mono text-amber-700">
+              Bitcoin staking pools are currently unavailable on this Sepolia
+              setup. You can still stake any supported token shown below.
+            </p>
+          )}
           <div className="text-xs font-mono text-gray-600">
             {hasStarknetConnected
               ? "Connected:"
@@ -145,15 +156,17 @@ export default function Earn() {
             <h2 className="text-lg font-medium">Stake</h2>
 
             <div className="space-y-1">
-              <p className="text-xs font-mono text-gray-600">STRK Balance</p>
+              <p className="text-xs font-mono text-gray-600">
+                {selectedTokenSymbol} Balance
+              </p>
               <p className="text-xl font-medium">
-                {displayBalance ? `${displayBalance} STRK` : "--"}
+                {displayBalance ? `${displayBalance} ${selectedTokenSymbol}` : "--"}
               </p>
             </div>
 
             <div className="space-y-2">
               <label className="text-xs font-mono text-gray-600">
-                Amount ({selectedToken?.symbol ?? "Token"})
+                Amount ({selectedTokenSymbol})
               </label>
               <input
                 value={amount}

@@ -130,6 +130,22 @@ export default function Portfolio() {
       0,
     );
   }, [onchainClaimHistory]);
+  const stakedTokenSummary = useMemo(() => {
+    const symbols = Array.from(
+      new Set(positions.map((position) => position.tokenSymbol)),
+    );
+    if (symbols.length === 0) return "--";
+    if (symbols.length === 1) return symbols[0] || "--";
+    return "Mixed tokens";
+  }, [positions]);
+  const claimedTokenSummary = useMemo(() => {
+    const symbols = Array.from(
+      new Set(onchainClaimHistory.map((item) => item.tokenSymbol)),
+    );
+    if (symbols.length === 0) return "--";
+    if (symbols.length === 1) return symbols[0] || "--";
+    return "Mixed tokens";
+  }, [onchainClaimHistory]);
 
   const getInjectedWallet = useCallback(async () => {
     const account = (starknetSigner as { account?: unknown } | null)?.account;
@@ -484,26 +500,27 @@ export default function Portfolio() {
             <p className="text-2xl font-medium">
               {loading || !hasFetchedPortfolio
                 ? "----"
-                : formatTokenAmount(totalStaked)}{" "}
-              STRK
+                : formatTokenAmount(totalStaked)}
             </p>
+            <p className="text-xs font-mono text-gray-500">{stakedTokenSummary}</p>
           </Card>
           <Card className="space-y-1">
             <p className="text-xs font-mono text-gray-600">Unclaimed Rewards</p>
             <p className="text-2xl font-medium">
               {loading || !hasFetchedPortfolio
                 ? "----"
-                : formatTokenAmount(totalRewards)}{" "}
-              STRK
+                : formatTokenAmount(totalRewards)}
             </p>
+            <p className="text-xs font-mono text-gray-500">{stakedTokenSummary}</p>
           </Card>
           <Card className="space-y-1">
             <p className="text-xs font-mono text-gray-600">Claimed Rewards</p>
             <p className="text-2xl font-medium">
               {onchainClaimHistory.length === 0
                 ? "--"
-                : `${formatTokenAmountWithTiny(totalClaimed)} STRK`}
+                : formatTokenAmountWithTiny(totalClaimed)}
             </p>
+            <p className="text-xs font-mono text-gray-500">{claimedTokenSummary}</p>
           </Card>
         </div>
 

@@ -16,7 +16,7 @@ export interface StakeResult {
 export interface UseStakeResult {
   isSubmitting: boolean;
   error: string | null;
-  strkBalance: string | null;
+  selectedTokenBalance: string | null;
   refreshBalance: (token: Token | null) => Promise<void>;
   stake: (params: {
     token: Token;
@@ -30,7 +30,9 @@ export function useStake(): UseStakeResult {
   const { setStarknetBalance, addStakeHistory } = useWallet();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [strkBalance, setStrkBalance] = useState<string | null>(null);
+  const [selectedTokenBalance, setSelectedTokenBalance] = useState<string | null>(
+    null,
+  );
 
   const starknetSigner = chainData.STARKNET?.wallet?.instance;
 
@@ -44,8 +46,8 @@ export function useStake(): UseStakeResult {
 
   const refreshBalance = useCallback(
     async (token: Token | null) => {
-      if (!token || token.symbol.toUpperCase() !== "STRK") {
-        setStrkBalance(null);
+      if (!token) {
+        setSelectedTokenBalance(null);
         setStarknetBalance(null);
         return;
       }
@@ -54,11 +56,11 @@ export function useStake(): UseStakeResult {
         const wallet = await getInjectedWallet();
         const balance = await wallet.balanceOf(token);
         const formatted = balance.toUnit();
-        setStrkBalance(formatted);
+        setSelectedTokenBalance(formatted);
         setStarknetBalance(formatted);
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Failed to fetch STRK balance";
+          err instanceof Error ? err.message : "Failed to fetch token balance";
         setError(message);
       }
     },
@@ -112,7 +114,7 @@ export function useStake(): UseStakeResult {
 
   useEffect(() => {
     if (!starknetSigner) {
-      setStrkBalance(null);
+      setSelectedTokenBalance(null);
       setStarknetBalance(null);
     }
   }, [setStarknetBalance, starknetSigner]);
@@ -120,7 +122,7 @@ export function useStake(): UseStakeResult {
   return {
     isSubmitting,
     error,
-    strkBalance,
+    selectedTokenBalance,
     refreshBalance,
     stake,
   };
