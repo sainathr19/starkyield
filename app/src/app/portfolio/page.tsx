@@ -560,19 +560,17 @@ export default function Portfolio() {
                   </p>
                 </div>
 
-                {Number(position.unpooling) > 0 && (
-                  <p className="text-xs font-mono text-gray-600 mt-2">
-                    Unpooling: {formatTokenAmount(position.unpooling)}{" "}
-                    {position.tokenSymbol}
-                    {position.unpoolTime &&
-                      ` (available ${new Date(position.unpoolTime).toLocaleString()})`}
-                  </p>
-                )}
-
-                <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  <div className="p-3 space-y-2 bg-my-grey/10">
-                    <p className="text-xs font-mono text-gray-600">Rewards</p>
-                    <p className="text-sm font-medium">
+                <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="p-4 space-y-3 border border-my-grey bg-background">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-mono text-gray-600">
+                        Claim rewards
+                      </p>
+                      <p className="text-xs font-mono text-gray-500">
+                        {position.tokenSymbol}
+                      </p>
+                    </div>
+                    <p className="text-base font-medium">
                       {formatTokenAmount(position.rewards)}{" "}
                       {position.tokenSymbol}
                     </p>
@@ -592,68 +590,88 @@ export default function Portfolio() {
                     </Button>
                   </div>
 
-                  <div className="p-3 space-y-2 bg-my-grey/10">
-                    <p className="text-xs font-mono text-gray-600">Unstake</p>
-                    <div className="flex gap-2">
-                      <input
-                        value={unstakeInputs[position.poolAddress] ?? ""}
-                        onChange={(e) =>
-                          setUnstakeInputs((prev) => ({
-                            ...prev,
-                            [position.poolAddress]: e.target.value,
-                          }))
-                        }
-                        placeholder={`Amount (${position.tokenSymbol})`}
-                        className="w-full border-2 border-my-grey bg-background px-3 py-2 font-mono text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setUnstakeInputs((prev) => ({
-                            ...prev,
-                            [position.poolAddress]: position.staked,
-                          }))
-                        }
-                        className="px-3 border-2 border-my-grey bg-background font-mono text-xs hover:bg-my-grey/20"
-                      >
-                        Max
-                      </button>
+                  <div className="p-4 space-y-3 border border-my-grey bg-background">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-mono text-gray-600">Unstake</p>
+                      <p className="text-xs font-mono text-gray-500">
+                        Staked: {formatTokenAmount(position.staked)}{" "}
+                        {position.tokenSymbol}
+                      </p>
                     </div>
-                    <Button
-                      size="sm"
-                      willHover={false}
-                      className="w-full"
-                      onClick={() => handleUnstakeIntent(position)}
-                      disabled={activeActionKey !== null}
-                    >
-                      {activeActionKey ===
-                      `unstake-intent:${position.poolAddress}`
-                        ? "Submitting..."
-                        : "Start Unstake"}
-                    </Button>
+                    {Number(position.unpooling) > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-mono text-gray-600">
+                          Unstake already pending:{" "}
+                          {formatTokenAmount(position.unpooling)}{" "}
+                          {position.tokenSymbol}
+                        </p>
+                        {position.unpoolTime && (
+                          <p className="text-xs font-mono text-gray-500">
+                            Available at{" "}
+                            {new Date(position.unpoolTime).toLocaleString()}
+                          </p>
+                        )}
+                        <Button
+                          size="sm"
+                          willHover={false}
+                          className="w-full"
+                          onClick={() => handleCompleteWithdraw(position)}
+                          disabled={
+                            activeActionKey !== null ||
+                            !position.unpoolTime ||
+                            Date.now() < new Date(position.unpoolTime).getTime()
+                          }
+                        >
+                          {activeActionKey ===
+                          `unstake-complete:${position.poolAddress}`
+                            ? "Withdrawing..."
+                            : "Complete Withdraw"}
+                        </Button>
+                      </div>
+                    )}
+                    {Number(position.unpooling) <= 0 && (
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <input
+                            value={unstakeInputs[position.poolAddress] ?? ""}
+                            onChange={(e) =>
+                              setUnstakeInputs((prev) => ({
+                                ...prev,
+                                [position.poolAddress]: e.target.value,
+                              }))
+                            }
+                            placeholder={`Amount (${position.tokenSymbol})`}
+                            className="w-full border-2 border-my-grey bg-background px-3 py-2 font-mono text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setUnstakeInputs((prev) => ({
+                                ...prev,
+                                [position.poolAddress]: position.staked,
+                              }))
+                            }
+                            className="px-3 border-2 border-my-grey bg-background font-mono text-xs hover:bg-my-grey/20"
+                          >
+                            Max
+                          </button>
+                        </div>
+                        <Button
+                          size="sm"
+                          willHover={false}
+                          className="w-full"
+                          onClick={() => handleUnstakeIntent(position)}
+                          disabled={activeActionKey !== null}
+                        >
+                          {activeActionKey ===
+                          `unstake-intent:${position.poolAddress}`
+                            ? "Submitting..."
+                            : "Start Unstake"}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {Number(position.unpooling) > 0 && (
-                  <div className="mt-2">
-                    <Button
-                      size="sm"
-                      willHover={false}
-                      className="w-full md:w-auto"
-                      onClick={() => handleCompleteWithdraw(position)}
-                      disabled={
-                        activeActionKey !== null ||
-                        !position.unpoolTime ||
-                        Date.now() < new Date(position.unpoolTime).getTime()
-                      }
-                    >
-                      {activeActionKey ===
-                      `unstake-complete:${position.poolAddress}`
-                        ? "Withdrawing..."
-                        : "Complete Withdraw"}
-                    </Button>
-                  </div>
-                )}
               </div>
             ))}
         </Card>
