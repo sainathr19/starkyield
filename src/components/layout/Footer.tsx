@@ -13,7 +13,7 @@ const Footer: React.FC<FooterProps> = ({ className }) => {
         <div className="grid grid-cols-1 gap-4">
           <div className="text-center md:text-left">
             <p className="font-mono text-sm text-my-grey">
-              @OneSat | One click, one Sat, one journey to yield
+              @StarkYield | One click, one stake, one journey to yield
             </p>
           </div>
         </div>

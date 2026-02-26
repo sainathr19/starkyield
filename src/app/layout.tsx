@@ -10,7 +10,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OneSat - One click, one Sat, one journey to yield",
+  title: "StarkYield - One click, one stake, one journey to yield",
   description: "Deposit native BTC (on-chain or Lightning) and start earning in one click – no wrapping, no hassle.",
   icons: {
     icon: "/logo.svg",

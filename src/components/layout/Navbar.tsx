@@ -85,7 +85,7 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
             <Link href="/">
               <Image
                 src="/onesat.svg"
-                alt="OneSat Logo"
+                alt="StarkYield Logo"
                 width={128}
                 height={128}
               />
