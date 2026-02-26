@@ -25,6 +25,55 @@ export interface UseStakeResult {
   }) => Promise<StakeResult>;
 }
 
+function extractStakingErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    const anyErr = err as Error & {
+      shortMessage?: string;
+      details?: string;
+      cause?: unknown;
+    };
+
+    const direct = anyErr.shortMessage || anyErr.message || anyErr.details;
+    if (direct && !direct.includes("UNKNOWN_ERROR")) {
+      return direct;
+    }
+
+    if (typeof anyErr.cause === "object" && anyErr.cause !== null) {
+      const cause = anyErr.cause as {
+        message?: string;
+        details?: string;
+        shortMessage?: string;
+      };
+      const nested = cause.shortMessage || cause.message || cause.details;
+      if (nested) return nested;
+    }
+
+    return anyErr.message || "Stake failed";
+  }
+
+  if (typeof err === "object" && err !== null) {
+    const generic = err as {
+      message?: string;
+      shortMessage?: string;
+      details?: string;
+      data?: { message?: string };
+    };
+    return (
+      generic.shortMessage ||
+      generic.message ||
+      generic.details ||
+      generic.data?.message ||
+      "Stake failed"
+    );
+  }
+
+  if (typeof err === "string" && err.trim()) {
+    return err;
+  }
+
+  return "Stake failed";
+}
+
 export function useStake(): UseStakeResult {
   const chainData = useContext(ChainDataContext);
   const { setStarknetBalance, addStakeHistory } = useWallet();
@@ -102,7 +151,8 @@ export function useStake(): UseStakeResult {
 
         return { txHash: tx.hash, explorerUrl: tx.explorerUrl };
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Stake failed";
+        console.error("[stake-debug] raw stake error", err);
+        const message = extractStakingErrorMessage(err);
         setError(message);
         throw new Error(message);
       } finally {

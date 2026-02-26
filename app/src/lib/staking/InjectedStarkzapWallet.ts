@@ -52,6 +52,78 @@ function resolveProvider(account: AccountLike): RpcProvider | null {
   return null;
 }
 
+function stringifyUnknownError(value: unknown): string | null {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+}
+
+function extractExecuteErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    const anyError = error as Error & {
+      shortMessage?: string;
+      details?: string;
+      cause?: unknown;
+      data?: { message?: string; error_message?: string };
+    };
+    const direct =
+      anyError.shortMessage ||
+      anyError.message ||
+      anyError.details ||
+      anyError.data?.message ||
+      anyError.data?.error_message;
+    if (direct && !direct.includes("UNKNOWN_ERROR")) {
+      return direct;
+    }
+    if (anyError.cause) {
+      const nested = extractExecuteErrorMessage(anyError.cause);
+      if (nested) return nested;
+    }
+    const serialized = stringifyUnknownError(error);
+    if (serialized && serialized !== "{}") {
+      return serialized;
+    }
+    return anyError.message || "Transaction execution failed";
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const candidate = error as {
+      shortMessage?: string;
+      message?: string;
+      details?: string;
+      reason?: string;
+      error?: unknown;
+      data?: { message?: string; error_message?: string };
+    };
+    const direct =
+      candidate.shortMessage ||
+      candidate.message ||
+      candidate.details ||
+      candidate.reason ||
+      candidate.data?.message ||
+      candidate.data?.error_message;
+    if (direct && !direct.includes("UNKNOWN_ERROR")) {
+      return direct;
+    }
+    if (candidate.error) {
+      const nested = extractExecuteErrorMessage(candidate.error);
+      if (nested) return nested;
+    }
+    const serialized = stringifyUnknownError(error);
+    if (serialized && serialized !== "{}") {
+      return serialized;
+    }
+  }
+
+  if (typeof error === "string" && error.trim()) {
+    return error;
+  }
+
+  return "Transaction execution failed";
+}
+
 export class InjectedStarkzapWallet extends BaseWallet {
   private readonly account: AccountLike;
   private readonly provider: RpcProvider;
@@ -110,8 +182,17 @@ export class InjectedStarkzapWallet extends BaseWallet {
       );
     }
 
-    const result = await this.account.execute(calls);
-    return new Tx(result.transaction_hash, this.provider, this.chainId);
+    try {
+      const result = await this.account.execute(calls);
+      return new Tx(result.transaction_hash, this.provider, this.chainId);
+    } catch (error) {
+      console.error("[wallet-execute-debug] execute failed", {
+        calls,
+        options,
+        error,
+      });
+      throw new Error(extractExecuteErrorMessage(error));
+    }
   }
 
   async signMessage(typedData: any): Promise<any> {

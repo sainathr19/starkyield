@@ -33,6 +33,7 @@ export default function Earn() {
     selectedPool,
     hasBtcLikeTokens,
     hasBtcLikePools,
+    loading,
     error,
   } = useStakingPools();
   const {
@@ -46,7 +47,10 @@ export default function Earn() {
   const [amount, setAmount] = useState("");
   const selectedTokenSymbol = selectedToken?.symbol ?? "Token";
   const showBtcStakingUnavailable =
-    STARKNET_NETWORK === "sepolia" && (!hasBtcLikeTokens || !hasBtcLikePools);
+    STARKNET_NETWORK === "sepolia" &&
+    !loading &&
+    tokens.length > 0 &&
+    (!hasBtcLikeTokens || !hasBtcLikePools);
 
   const displayBalance = useMemo(() => {
     return selectedTokenBalance ?? balances.starknet ?? null;
@@ -160,7 +164,9 @@ export default function Earn() {
                 {selectedTokenSymbol} Balance
               </p>
               <p className="text-xl font-medium">
-                {displayBalance ? `${displayBalance} ${selectedTokenSymbol}` : "--"}
+                {displayBalance
+                  ? `${displayBalance} ${selectedTokenSymbol}`
+                  : "--"}
               </p>
             </div>
 
