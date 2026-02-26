@@ -32,6 +32,7 @@ export default function Portfolio() {
   const { stakeHistory } = useWallet();
   const [positions, setPositions] = useState<PortfolioPosition[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasFetchedPortfolio, setHasFetchedPortfolio] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const starknetSigner = chainData.STARKNET?.wallet?.instance;
@@ -53,6 +54,7 @@ export default function Portfolio() {
     if (!hasWallet) {
       setPositions([]);
       setError(null);
+      setHasFetchedPortfolio(false);
       return;
     }
 
@@ -142,6 +144,7 @@ export default function Portfolio() {
       setError(message);
     } finally {
       setLoading(false);
+      setHasFetchedPortfolio(true);
     }
   }, [hasWallet, starknetSigner]);
 
@@ -154,27 +157,17 @@ export default function Portfolio() {
   return (
     <MainLayout className="px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto py-4 md:py-6 space-y-4">
-        <Card className="space-y-2">
-          <h1 className="text-2xl md:text-3xl font-medium">Portfolio</h1>
-          <div className="text-xs font-mono text-gray-600">APY: --</div>
-          <div className="text-xs font-mono text-gray-600">
-            {hasWallet
-              ? `Connected: ${starknetAddress}`
-              : "Connect Starknet wallet to view staking portfolio"}
-          </div>
-        </Card>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="space-y-1">
             <p className="text-xs font-mono text-gray-600">Total Staked</p>
             <p className="text-2xl font-medium">
-              {totalStaked.toFixed(6)} STRK
+              {loading || !hasFetchedPortfolio ? "----" : totalStaked.toFixed(6)} STRK
             </p>
           </Card>
           <Card className="space-y-1">
             <p className="text-xs font-mono text-gray-600">Unclaimed Rewards</p>
             <p className="text-2xl font-medium">
-              {totalRewards.toFixed(6)} STRK
+              {loading || !hasFetchedPortfolio ? "----" : totalRewards.toFixed(6)} STRK
             </p>
           </Card>
         </div>
