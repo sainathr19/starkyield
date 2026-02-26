@@ -1,10 +1,19 @@
 "use client";
 
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { Address } from "starkzap";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Amount, type Address, type Call, type Token } from "starkzap";
+import { hash } from "starknet";
 
 import { ChainDataContext } from "@/app/context/ChainDataContext";
 import MainLayout from "@/components/layout/MainLayout";
+import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import {
   getAddressExplorerUrl,
@@ -15,15 +24,28 @@ import {
   getValidatorPools,
   stakingValidators,
 } from "@/lib/staking/starkzapClient";
-import { useWallet } from "@/store/useWallet";
 
 type PortfolioPosition = {
   poolAddress: string;
   validatorName: string;
+  token: Token;
   tokenSymbol: string;
   staked: string;
   rewards: string;
   total: string;
+  unpooling: string;
+  unpoolTime: string | null;
+  rewardAddress: string | null;
+};
+
+type ClaimEventItem = {
+  id: string;
+  txHash: string;
+  explorerUrl: string;
+  poolAddress: string;
+  tokenSymbol: string;
+  amount: string;
+  createdAt: string;
 };
 
 function formatAddress(address: string): string {
@@ -44,13 +66,48 @@ function formatTokenAmount(
   }).format(numeric);
 }
 
+function formatTokenAmountWithTiny(
+  value: string | number,
+  maxFractionDigits = 6,
+): string {
+  const numeric =
+    typeof value === "number" ? value : Number.parseFloat(value || "0");
+  if (!Number.isFinite(numeric) || numeric <= 0) return "0";
+  const threshold = 1 / 10 ** maxFractionDigits;
+  if (numeric > 0 && numeric < threshold) {
+    return `<${threshold.toFixed(maxFractionDigits)}`;
+  }
+  return formatTokenAmount(numeric, maxFractionDigits);
+}
+
+function baseUnitsToDecimalString(raw: string, decimals: number): string {
+  const value = BigInt(raw);
+  const divisor = BigInt(10) ** BigInt(decimals);
+  const whole = value / divisor;
+  const frac = value % divisor;
+  if (frac === 0n) return whole.toString();
+  const fracPadded = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+  return `${whole.toString()}.${fracPadded}`;
+}
+
+const DEFAULT_CLAIM_EVENT_LOOKBACK_BLOCKS = 50_000;
+const MAX_EVENT_PAGES_PER_POOL = 30;
+
 export default function Portfolio() {
   const chainData = useContext(ChainDataContext);
-  const { stakeHistory } = useWallet();
   const [positions, setPositions] = useState<PortfolioPosition[]>([]);
+  const [onchainClaimHistory, setOnchainClaimHistory] = useState<
+    ClaimEventItem[]
+  >([]);
+  const [unstakeInputs, setUnstakeInputs] = useState<Record<string, string>>(
+    {},
+  );
   const [loading, setLoading] = useState(false);
   const [hasFetchedPortfolio, setHasFetchedPortfolio] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
+  const isLoadingPortfolioRef = useRef(false);
 
   const starknetSigner = chainData.STARKNET?.wallet?.instance;
   const starknetAddress = chainData.STARKNET?.wallet?.address ?? null;
@@ -67,24 +124,38 @@ export default function Portfolio() {
     );
   }, [positions]);
 
+  const totalClaimed = useMemo(() => {
+    return onchainClaimHistory.reduce(
+      (sum, item) => sum + Number.parseFloat(item.amount || "0"),
+      0,
+    );
+  }, [onchainClaimHistory]);
+
+  const getInjectedWallet = useCallback(async () => {
+    const account = (starknetSigner as { account?: unknown } | null)?.account;
+    if (!account) {
+      throw new Error("Connect your Starknet wallet to continue");
+    }
+    return InjectedStarkzapWallet.fromAccount(account as never);
+  }, [starknetSigner]);
+
   const loadPortfolio = useCallback(async () => {
+    if (isLoadingPortfolioRef.current) return;
+
     if (!hasWallet) {
       setPositions([]);
+      setOnchainClaimHistory([]);
       setError(null);
       setHasFetchedPortfolio(false);
       return;
     }
 
+    isLoadingPortfolioRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
-      const account = (starknetSigner as { account?: unknown } | null)?.account;
-      if (!account) {
-        throw new Error("Connect your Starknet wallet to continue");
-      }
-
-      const wallet = await InjectedStarkzapWallet.fromAccount(account as never);
+      const wallet = await getInjectedWallet();
 
       const validatorPoolResults = await Promise.allSettled(
         stakingValidators.map(async (validator) => ({
@@ -95,7 +166,12 @@ export default function Portfolio() {
 
       const uniquePools = new Map<
         string,
-        { validatorName: string; poolAddress: string; tokenSymbol: string }
+        {
+          validatorName: string;
+          poolAddress: string;
+          tokenSymbol: string;
+          token: Token;
+        }
       >();
 
       for (const result of validatorPoolResults) {
@@ -106,6 +182,7 @@ export default function Portfolio() {
               validatorName: result.value.validatorName,
               poolAddress: pool.poolContract,
               tokenSymbol: pool.token.symbol,
+              token: pool.token,
             });
           }
         }
@@ -119,6 +196,9 @@ export default function Portfolio() {
             staked?: { toUnit?: () => string };
             rewards?: { toUnit?: () => string };
             total?: { toUnit?: () => string };
+            unpooling?: { toUnit?: () => string };
+            unpoolTime?: Date;
+            rewardAddress?: string;
           } | null;
 
           if (!member) return null;
@@ -126,11 +206,17 @@ export default function Portfolio() {
           const staked = member.staked?.toUnit?.() ?? "0";
           const rewards = member.rewards?.toUnit?.() ?? "0";
           const total = member.total?.toUnit?.() ?? "0";
+          const unpooling = member.unpooling?.toUnit?.() ?? "0";
+          const unpoolTime = member.unpoolTime
+            ? member.unpoolTime.toISOString()
+            : null;
+          const rewardAddress = member.rewardAddress ?? null;
 
           if (
             Number(staked) <= 0 &&
             Number(rewards) <= 0 &&
-            Number(total) <= 0
+            Number(total) <= 0 &&
+            Number(unpooling) <= 0
           ) {
             return null;
           }
@@ -138,10 +224,14 @@ export default function Portfolio() {
           return {
             poolAddress: pool.poolAddress,
             validatorName: pool.validatorName,
+            token: pool.token,
             tokenSymbol: pool.tokenSymbol,
             staked,
             rewards,
             total,
+            unpooling,
+            unpoolTime,
+            rewardAddress,
           } as PortfolioPosition;
         }),
       );
@@ -155,6 +245,113 @@ export default function Portfolio() {
         .filter((item): item is PortfolioPosition => item !== null);
 
       setPositions(nextPositions);
+      console.log("[portfolio-debug] fetched positions", {
+        connected: starknetAddress,
+        count: nextPositions.length,
+        positions: nextPositions.map((p) => ({
+          poolAddress: p.poolAddress,
+          token: p.tokenSymbol,
+          staked: p.staked,
+          rewards: p.rewards,
+          rewardAddress: p.rewardAddress,
+          unpooling: p.unpooling,
+          unpoolTime: p.unpoolTime,
+        })),
+      });
+
+      try {
+        const provider = wallet.getProvider();
+        const walletAddress = wallet.address;
+        const latestBlock = await provider.getBlockNumber();
+        const configuredLookback = Number.parseInt(
+          process.env.NEXT_PUBLIC_CLAIM_EVENT_LOOKBACK_BLOCKS || "",
+          10,
+        );
+        const lookbackBlocks =
+          Number.isFinite(configuredLookback) && configuredLookback > 0
+            ? configuredLookback
+            : DEFAULT_CLAIM_EVENT_LOOKBACK_BLOCKS;
+        const fromBlockNumber = Math.max(0, latestBlock - lookbackBlocks);
+        const eventSelectorCandidates = [
+          hash.getSelectorFromName("PoolMemberRewardClaimed"),
+          hash.getSelectorFromName("pool_member_reward_claimed"),
+        ];
+        const chainClaimEvents: ClaimEventItem[] = [];
+
+        for (const position of nextPositions) {
+          let continuationToken: string | undefined = undefined;
+          let pageCount = 0;
+          const seenTokens = new Set<string>();
+
+          do {
+            const response = await provider.getEvents({
+              address: position.poolAddress,
+              from_block: { block_number: fromBlockNumber },
+              to_block: "latest",
+              keys: [eventSelectorCandidates, [walletAddress]],
+              chunk_size: 100,
+              continuation_token: continuationToken,
+            });
+
+            for (const event of response.events ?? []) {
+              const amountHex = event.data?.[0];
+              if (!amountHex) continue;
+              const amount = baseUnitsToDecimalString(
+                BigInt(amountHex).toString(),
+                position.token.decimals,
+              );
+              chainClaimEvents.push({
+                id: `${event.transaction_hash}-${position.poolAddress}`,
+                txHash: event.transaction_hash,
+                explorerUrl: getTxExplorerUrl(event.transaction_hash),
+                poolAddress: position.poolAddress,
+                tokenSymbol: position.tokenSymbol,
+                amount,
+                createdAt: "",
+              });
+            }
+
+            const nextToken = response.continuation_token ?? undefined;
+            if (!nextToken) {
+              continuationToken = undefined;
+              continue;
+            }
+
+            if (seenTokens.has(nextToken)) {
+              console.warn(
+                "[portfolio-debug] stopping getEvents pagination due to repeated continuation token",
+                { poolAddress: position.poolAddress, token: nextToken },
+              );
+              continuationToken = undefined;
+              continue;
+            }
+
+            seenTokens.add(nextToken);
+            continuationToken = nextToken;
+            pageCount += 1;
+            if (pageCount >= MAX_EVENT_PAGES_PER_POOL) {
+              console.warn(
+                "[portfolio-debug] stopping getEvents pagination due to max page cap",
+                {
+                  poolAddress: position.poolAddress,
+                  maxPages: MAX_EVENT_PAGES_PER_POOL,
+                },
+              );
+              continuationToken = undefined;
+            }
+          } while (continuationToken);
+        }
+
+        setOnchainClaimHistory(chainClaimEvents);
+        console.log("[portfolio-debug] onchain claim events", {
+          fromBlockNumber,
+          latestBlock,
+          count: chainClaimEvents.length,
+        });
+      } catch (eventError) {
+        console.log("[portfolio-debug] onchain claim fetch failed", eventError);
+        setOnchainClaimHistory([]);
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to load portfolio";
@@ -162,8 +359,107 @@ export default function Portfolio() {
     } finally {
       setLoading(false);
       setHasFetchedPortfolio(true);
+      isLoadingPortfolioRef.current = false;
     }
-  }, [hasWallet, starknetSigner]);
+  }, [getInjectedWallet, hasWallet]);
+
+  const runAction = useCallback(
+    async (actionKey: string, action: () => Promise<void>) => {
+      setActionError(null);
+      setActiveActionKey(actionKey);
+      try {
+        await action();
+        await loadPortfolio();
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Staking action failed";
+        setActionError(message);
+      } finally {
+        setActiveActionKey(null);
+      }
+    },
+    [loadPortfolio],
+  );
+
+  const handleClaim = useCallback(
+    async (position: PortfolioPosition) => {
+      await runAction(`claim:${position.poolAddress}`, async () => {
+        const wallet = await getInjectedWallet();
+        const latestPosition = (await (wallet as any).getPoolPosition(
+          position.poolAddress as Address,
+        )) as {
+          rewards?: { toUnit?: () => string };
+          rewardAddress?: string;
+        } | null;
+
+        const latestRewards =
+          latestPosition?.rewards?.toUnit?.() ?? position.rewards;
+        if (Number(latestRewards) <= 0) {
+          throw new Error("No claimable rewards available for this pool");
+        }
+
+        // Bypass Starkzap's strict string address check and let the pool contract
+        // enforce authorization directly.
+        const claimCall: Call = {
+          contractAddress: position.poolAddress as Address,
+          entrypoint: "claim_rewards",
+          calldata: [wallet.address],
+        };
+        const tx = await wallet.execute([claimCall]);
+        await tx.wait();
+        console.log("[portfolio-debug] stored claim history item", {
+          txHash: tx.hash,
+          poolAddress: position.poolAddress,
+          token: position.tokenSymbol,
+          amount: latestRewards,
+        });
+      });
+    },
+    [getInjectedWallet, runAction],
+  );
+
+  const handleUnstakeIntent = useCallback(
+    async (position: PortfolioPosition) => {
+      const input = (unstakeInputs[position.poolAddress] || "").trim();
+      const amountNumber = Number(input);
+      const stakedNumber = Number(position.staked);
+
+      if (!input || !Number.isFinite(amountNumber) || amountNumber <= 0) {
+        setActionError("Enter a valid unstake amount");
+        return;
+      }
+      if (amountNumber > stakedNumber) {
+        setActionError("Unstake amount cannot exceed staked amount");
+        return;
+      }
+
+      await runAction(`unstake-intent:${position.poolAddress}`, async () => {
+        const wallet = await getInjectedWallet();
+        const parsedAmount = Amount.parse(input, position.token);
+        const tx = await (wallet as any).exitPoolIntent(
+          position.poolAddress as Address,
+          parsedAmount,
+        );
+        await tx.wait();
+      });
+
+      setUnstakeInputs((prev) => ({ ...prev, [position.poolAddress]: "" }));
+    },
+    [getInjectedWallet, runAction, unstakeInputs],
+  );
+
+  const handleCompleteWithdraw = useCallback(
+    async (position: PortfolioPosition) => {
+      await runAction(`unstake-complete:${position.poolAddress}`, async () => {
+        const wallet = await getInjectedWallet();
+        const tx = await (wallet as any).exitPool(
+          position.poolAddress as Address,
+        );
+        await tx.wait();
+      });
+    },
+    [getInjectedWallet, runAction],
+  );
 
   useEffect(() => {
     loadPortfolio().catch(() => {
@@ -171,10 +467,18 @@ export default function Portfolio() {
     });
   }, [loadPortfolio]);
 
+  useEffect(() => {
+    console.log("[portfolio-debug] claim history snapshot", {
+      onchainEntries: onchainClaimHistory.length,
+      onchainClaimHistory,
+      totalClaimedRaw: totalClaimed,
+    });
+  }, [onchainClaimHistory, totalClaimed]);
+
   return (
     <MainLayout className="px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto py-4 md:py-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="space-y-1">
             <p className="text-xs font-mono text-gray-600">Total Staked</p>
             <p className="text-2xl font-medium">
@@ -193,6 +497,14 @@ export default function Portfolio() {
               STRK
             </p>
           </Card>
+          <Card className="space-y-1">
+            <p className="text-xs font-mono text-gray-600">Claimed Rewards</p>
+            <p className="text-2xl font-medium">
+              {onchainClaimHistory.length === 0
+                ? "--"
+                : `${formatTokenAmountWithTiny(totalClaimed)} STRK`}
+            </p>
+          </Card>
         </div>
 
         <Card className="space-y-3">
@@ -209,83 +521,151 @@ export default function Portfolio() {
             positions.map((position) => (
               <div
                 key={position.poolAddress}
-                className="border-2 border-my-grey p-3 space-y-1"
+                className="border-2 border-my-grey p-4"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium">
-                    {position.validatorName}
-                  </p>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-base font-medium">
+                      {position.validatorName}
+                    </p>
+                    <p className="text-xs font-mono text-gray-600">
+                      Pool:{" "}
+                      <a
+                        href={getAddressExplorerUrl(position.poolAddress)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-teal-700 underline"
+                      >
+                        {formatAddress(position.poolAddress)}
+                      </a>
+                    </p>
+                  </div>
                   <p className="text-xs font-mono text-gray-600">
                     {position.tokenSymbol}
                   </p>
                 </div>
-                <p className="text-xs font-mono text-gray-600">
-                  Pool:{" "}
-                  <a
-                    href={getAddressExplorerUrl(position.poolAddress)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-teal-700 underline"
-                  >
-                    {formatAddress(position.poolAddress)}
-                  </a>
-                </p>
-                <p className="text-sm">
-                  Staked: {formatTokenAmount(position.staked)}{" "}
-                  {position.tokenSymbol}
-                </p>
-                <p className="text-sm">
-                  Rewards: {formatTokenAmount(position.rewards)}{" "}
-                  {position.tokenSymbol}
-                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3 text-sm">
+                  <p>
+                    Staked: {formatTokenAmount(position.staked)}{" "}
+                    {position.tokenSymbol}
+                  </p>
+                  <p>
+                    Rewards: {formatTokenAmount(position.rewards)}{" "}
+                    {position.tokenSymbol}
+                  </p>
+                  <p>
+                    Total: {formatTokenAmount(position.total)}{" "}
+                    {position.tokenSymbol}
+                  </p>
+                </div>
+
+                {Number(position.unpooling) > 0 && (
+                  <p className="text-xs font-mono text-gray-600 mt-2">
+                    Unpooling: {formatTokenAmount(position.unpooling)}{" "}
+                    {position.tokenSymbol}
+                    {position.unpoolTime &&
+                      ` (available ${new Date(position.unpoolTime).toLocaleString()})`}
+                  </p>
+                )}
+
+                <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <div className="p-3 space-y-2 bg-my-grey/10">
+                    <p className="text-xs font-mono text-gray-600">Rewards</p>
+                    <p className="text-sm font-medium">
+                      {formatTokenAmount(position.rewards)}{" "}
+                      {position.tokenSymbol}
+                    </p>
+                    <Button
+                      size="sm"
+                      willHover={false}
+                      className="w-full"
+                      onClick={() => handleClaim(position)}
+                      disabled={
+                        activeActionKey !== null ||
+                        Number(position.rewards) <= 0
+                      }
+                    >
+                      {activeActionKey === `claim:${position.poolAddress}`
+                        ? "Claiming..."
+                        : "Claim Rewards"}
+                    </Button>
+                  </div>
+
+                  <div className="p-3 space-y-2 bg-my-grey/10">
+                    <p className="text-xs font-mono text-gray-600">Unstake</p>
+                    <div className="flex gap-2">
+                      <input
+                        value={unstakeInputs[position.poolAddress] ?? ""}
+                        onChange={(e) =>
+                          setUnstakeInputs((prev) => ({
+                            ...prev,
+                            [position.poolAddress]: e.target.value,
+                          }))
+                        }
+                        placeholder={`Amount (${position.tokenSymbol})`}
+                        className="w-full border-2 border-my-grey bg-background px-3 py-2 font-mono text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setUnstakeInputs((prev) => ({
+                            ...prev,
+                            [position.poolAddress]: position.staked,
+                          }))
+                        }
+                        className="px-3 border-2 border-my-grey bg-background font-mono text-xs hover:bg-my-grey/20"
+                      >
+                        Max
+                      </button>
+                    </div>
+                    <Button
+                      size="sm"
+                      willHover={false}
+                      className="w-full"
+                      onClick={() => handleUnstakeIntent(position)}
+                      disabled={activeActionKey !== null}
+                    >
+                      {activeActionKey ===
+                      `unstake-intent:${position.poolAddress}`
+                        ? "Submitting..."
+                        : "Start Unstake"}
+                    </Button>
+                  </div>
+                </div>
+
+                {Number(position.unpooling) > 0 && (
+                  <div className="mt-2">
+                    <Button
+                      size="sm"
+                      willHover={false}
+                      className="w-full md:w-auto"
+                      onClick={() => handleCompleteWithdraw(position)}
+                      disabled={
+                        activeActionKey !== null ||
+                        !position.unpoolTime ||
+                        Date.now() < new Date(position.unpoolTime).getTime()
+                      }
+                    >
+                      {activeActionKey ===
+                      `unstake-complete:${position.poolAddress}`
+                        ? "Withdrawing..."
+                        : "Complete Withdraw"}
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
-        </Card>
-
-        <Card className="space-y-3">
-          <h2 className="text-lg font-medium">Recent Stake History</h2>
-          {stakeHistory.length === 0 ? (
-            <p className="text-sm text-gray-600">
-              No stake transactions recorded yet in this browser.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {stakeHistory.slice(0, 10).map((item) => (
-                <div
-                  key={item.id}
-                  className="border-2 border-my-grey p-3 flex flex-col gap-1"
-                >
-                  <p className="text-sm">
-                    Staked {item.amount} {item.tokenSymbol}
-                  </p>
-                  <p className="text-xs font-mono text-gray-600">
-                    Pool:{" "}
-                    <a
-                      href={getAddressExplorerUrl(item.poolAddress)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-teal-700 underline"
-                    >
-                      {formatAddress(item.poolAddress)}
-                    </a>
-                  </p>
-                  <a
-                    href={item.explorerUrl || getTxExplorerUrl(item.txHash)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-mono text-teal-700 underline break-all"
-                  >
-                    {item.txHash}
-                  </a>
-                </div>
-              ))}
-            </div>
-          )}
         </Card>
 
         {error && (
           <Card>
             <p className="text-sm text-red-600">{error}</p>
+          </Card>
+        )}
+        {actionError && (
+          <Card>
+            <p className="text-sm text-red-600">{actionError}</p>
           </Card>
         )}
       </div>

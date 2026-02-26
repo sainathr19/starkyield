@@ -193,11 +193,8 @@ export default function Earn() {
           </Card>
         </div>
 
-        {(loading || error || stakeError) && (
+        {(error || stakeError) && (
           <Card className="space-y-2">
-            {loading && (
-              <p className="text-sm text-gray-600">Loading staking data...</p>
-            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
             {stakeError && <p className="text-sm text-red-600">{stakeError}</p>}
           </Card>
