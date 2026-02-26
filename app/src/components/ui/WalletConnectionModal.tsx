@@ -126,16 +126,6 @@ const WalletConnectionModal: React.FC<WalletConnectionModalProps> = ({
           </button>
         </div>
 
-        {/* Network Info */}
-        <div className="mb-6 text-xs font-mono p-3 border rounded-md bg-gray-50">
-          <div className="font-semibold mb-2">Network Configuration:</div>
-          <div>• Bitcoin: Testnet4</div>
-          <div>• Starknet: Sepolia</div>
-          <div className="mt-2 text-gray-600">
-            Native staking requires Starknet wallet connection.
-          </div>
-        </div>
-
         {/* Connection Status */}
         <div className="space-y-4 mb-6">
           {/* Bitcoin Wallet */}

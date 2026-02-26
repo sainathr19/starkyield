@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChainDataContext } from "@/app/context/ChainDataContext";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import AnimatedLink from "@/components/ui/AnimatedLink";
@@ -20,15 +21,17 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const pathname = usePathname();
+  const chainData = React.useContext(ChainDataContext);
   const {
     isXverseAvailable,
     isConnecting,
     connected,
     bitcoinPaymentAddress,
     stacksAddress,
-    starknetAddress,
+    starknetAddress: storedStarknetAddress,
     detectProviders,
   } = useWallet();
+  const starknetAddress = chainData.STARKNET?.wallet?.address || storedStarknetAddress;
 
   const short = (
     addr?: string | null,
@@ -61,6 +64,18 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
   // Pick the address for avatar and display, in same priority as before
   const displayAddress =
     bitcoinPaymentAddress || starknetAddress || stacksAddress;
+  const connectedWallets = [
+    bitcoinPaymentAddress
+      ? {
+          value: short(bitcoinPaymentAddress, 6, 6),
+        }
+      : null,
+    starknetAddress
+      ? {
+          value: short(starknetAddress, 6, 6),
+        }
+      : null,
+  ].filter(Boolean) as { value: string }[];
 
   return (
     <nav className={cn("w-full px-4 sm:px-6 lg:px-8 py-6 relative", className)}>
@@ -104,9 +119,17 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
               </Button>
             ) : (
               <>
-                <button
+                <div
+                  role="button"
+                  tabIndex={0}
                   className="font-mono text-sm flex items-center space-x-2 px-3 py-2 rounded-full border border-gray-300 hover:bg-gray-50"
                   onClick={() => setIsWalletModalOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setIsWalletModalOpen(true);
+                    }
+                  }}
                 >
                   {displayAddress && (
                     <Avatar
@@ -122,8 +145,17 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
                       ]}
                     />
                   )}
-                  <span>{short(displayAddress)}</span>
-                </button>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {connectedWallets.map((wallet, index) => (
+                      <span
+                        key={`${wallet.value}-${index}`}
+                        className="inline-flex items-center px-2 py-1 rounded-full border border-gray-300 bg-background text-[11px]"
+                      >
+                        <span>{wallet.value}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </>
             )}
           </div>
