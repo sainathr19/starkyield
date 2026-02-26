@@ -27,6 +27,19 @@ function formatAddress(address: string): string {
   return `${address.slice(0, 8)}...${address.slice(-6)}`;
 }
 
+function formatTokenAmount(
+  value: string | number,
+  maxFractionDigits = 6,
+): string {
+  const numeric =
+    typeof value === "number" ? value : Number.parseFloat(value || "0");
+  if (!Number.isFinite(numeric)) return "0";
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxFractionDigits,
+  }).format(numeric);
+}
+
 export default function Portfolio() {
   const chainData = useContext(ChainDataContext);
   const { stakeHistory } = useWallet();
@@ -161,13 +174,19 @@ export default function Portfolio() {
           <Card className="space-y-1">
             <p className="text-xs font-mono text-gray-600">Total Staked</p>
             <p className="text-2xl font-medium">
-              {loading || !hasFetchedPortfolio ? "----" : totalStaked.toFixed(6)} STRK
+              {loading || !hasFetchedPortfolio
+                ? "----"
+                : formatTokenAmount(totalStaked)}{" "}
+              STRK
             </p>
           </Card>
           <Card className="space-y-1">
             <p className="text-xs font-mono text-gray-600">Unclaimed Rewards</p>
             <p className="text-2xl font-medium">
-              {loading || !hasFetchedPortfolio ? "----" : totalRewards.toFixed(6)} STRK
+              {loading || !hasFetchedPortfolio
+                ? "----"
+                : formatTokenAmount(totalRewards)}{" "}
+              STRK
             </p>
           </Card>
         </div>
@@ -200,10 +219,12 @@ export default function Portfolio() {
                   Pool: {formatAddress(position.poolAddress)}
                 </p>
                 <p className="text-sm">
-                  Staked: {position.staked} {position.tokenSymbol}
+                  Staked: {formatTokenAmount(position.staked)}{" "}
+                  {position.tokenSymbol}
                 </p>
                 <p className="text-sm">
-                  Rewards: {position.rewards} {position.tokenSymbol}
+                  Rewards: {formatTokenAmount(position.rewards)}{" "}
+                  {position.tokenSymbol}
                 </p>
               </div>
             ))}
