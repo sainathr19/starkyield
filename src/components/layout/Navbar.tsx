@@ -25,13 +25,15 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
   const {
     isXverseAvailable,
     isConnecting,
-    connected,
     bitcoinPaymentAddress,
     stacksAddress,
     starknetAddress: storedStarknetAddress,
     detectProviders,
   } = useWallet();
   const starknetAddress = chainData.STARKNET?.wallet?.address || storedStarknetAddress;
+  const hasAnyWalletConnected = Boolean(
+    bitcoinPaymentAddress || starknetAddress || stacksAddress
+  );
 
   const short = (
     addr?: string | null,
@@ -108,7 +110,7 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
             </AnimatedLink>
           ))}
           <div className="flex items-center space-x-4">
-            {!connected ? (
+            {!hasAnyWalletConnected ? (
               <Button
                 variant="primary"
                 size="md"
@@ -263,7 +265,7 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
 
               <div className="p-6 border-t border-gray-200 bg-gray-50">
                 <div className="space-y-4">
-                  {!connected ? (
+                  {!hasAnyWalletConnected ? (
                     <Button
                       variant="primary"
                       className="w-full"
