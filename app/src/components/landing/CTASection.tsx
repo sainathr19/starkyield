@@ -16,13 +16,13 @@ const CTASection: React.FC<CTASectionProps> = ({ className }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-center">
                     <div className="text-center lg:text-left">
                         <h2 className="font-mono text-xl">
-                            Put your Bitcoin to work today.
+                            Build yield with OneSat.
                         </h2>
                     </div>
 
                     <div className="flex justify-center lg:justify-end">
                         <Button variant="primary" onClick={() => router.push('/earn')}>
-                            Start Earning with BTC
+                            Start Staking
                         </Button>
                     </div>
                 </div>

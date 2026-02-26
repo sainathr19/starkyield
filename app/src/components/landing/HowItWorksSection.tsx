@@ -32,33 +32,33 @@ interface HowItWorksSectionProps {
 const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ className }) => {
     const steps = [
         {
-            stepNumber: 'Step 1',
-            title: 'Deposit Native BTC',
-            description: 'Send BTC directly from your wallet (L1 or Lightning).',
+            stepNumber: 'BTC + STRK',
+            title: 'Dual-Asset Staking',
+            description: 'Stake both BTC and STRK in one place.',
             icon: (
                 <Image src="/icons/deposit.svg" alt="Deposit" width={56} height={56} />
             )
         },
         {
-            stepNumber: 'Step 2',
-            title: 'One-Click Bridge',
-            description: 'We handle the conversion into Starknet-compatible WBTC behind the scenes.',
+            stepNumber: 'Simple UX',
+            title: 'Clean Experience',
+            description: 'A focused staking product with no unnecessary complexity.',
             icon: (
                 <Image src="/icons/bridge.svg" alt="Bridge" width={56} height={56} />
             )
         },
         {
-            stepNumber: 'Step 3',
-            title: 'Automatic Yield',
-            description: 'Your BTC is deployed into supported Starknet yield strategies.',
+            stepNumber: 'On-Chain',
+            title: 'Powered by Starkzap',
+            description: 'Built on Starknet with Starkzap staking support.',
             icon: (
                 <Image src="/icons/yield.svg" alt="Yield" width={56} height={56} />
             )
         },
         {
-            stepNumber: 'Step 4',
-            title: 'Withdraw Anytime',
-            description: 'Easy withdraw your yields earned!',
+            stepNumber: 'Portfolio',
+            title: 'Visibility',
+            description: 'Track your positions and rewards from a single dashboard.',
             icon: (
                 <Image src="/icons/withdraw.svg" alt="Withdraw" width={56} height={56} />
             )
