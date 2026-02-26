@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #F8F7F5;
+  --foreground: #2D2D2D;
+}
+
+/* something */
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Sidebar animations */
+@keyframes slideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* Shimmer animations */
+@keyframes shimmer-forward {
+  0% {
+    transform: translateX(-150%) rotate(-45deg);
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(150%) rotate(-45deg);
+    opacity: 0;
+  }
+}
+
+@keyframes shimmer-backward {
+  0% {
+    transform: translateX(150%) rotate(-45deg);
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(-150%) rotate(-45deg);
+    opacity: 0;
+  }
+}
+
+.shimmer-effect:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 168px;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.5) 50%, transparent);
+  pointer-events: none;
+}
+
+.shimmer-forward:before {
+  animation: shimmer-forward 0.4s ease-out forwards;
+}
+
+.shimmer-backward:before {
+  animation: shimmer-backward 0.4s ease-out forwards;
+}
+
+@keyframes slideUp {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg,
+      rgba(158, 163, 147, 0.4) 0%,
+      rgba(158, 163, 147, 0.2) 50%,
+      rgba(158, 163, 147, 0.4) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Hide scrollbar */
+.hide-scrollbar {
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari, Opera */
+}
