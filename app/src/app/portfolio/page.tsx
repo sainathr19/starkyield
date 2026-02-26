@@ -156,12 +156,7 @@ export default function Portfolio() {
       <div className="max-w-7xl mx-auto py-4 md:py-6 space-y-4">
         <Card className="space-y-2">
           <h1 className="text-2xl md:text-3xl font-medium">Portfolio</h1>
-          <p className="text-sm text-gray-600">
-            Live stake and rewards are fetched from Starknet.
-          </p>
-          <div className="text-xs font-mono text-gray-600">
-            APY: N/A (indexer/API integration pending)
-          </div>
+          <div className="text-xs font-mono text-gray-600">APY: --</div>
           <div className="text-xs font-mono text-gray-600">
             {hasWallet
               ? `Connected: ${starknetAddress}`

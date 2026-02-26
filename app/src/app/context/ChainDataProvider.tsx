@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { ChainDataContext } from "./ChainDataContext";
 import { XverseBitcoinWallet } from "@/lib/bitcoin/XverseBitcoinWallet";
 import { UnisatBitcoinWallet } from "@/lib/bitcoin/UnisatBitcoinWallet";
@@ -15,7 +15,7 @@ import {
   disconnect,
   StarknetWindowObject,
 } from "@starknet-io/get-starknet";
-import { WalletAccount, wallet } from "starknet";
+import { WalletAccount } from "starknet";
 import { useWallet } from "@/store/useWallet";
 import { getPresets } from "starkzap";
 import { InjectedStarkzapWallet } from "@/lib/staking/InjectedStarkzapWallet";
@@ -45,6 +45,7 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
   );
   const [starknetWalletData, setStarknetWalletData] =
     useState<StarknetWindowObject | null>(null);
+  const hasAttemptedStarknetAutoReconnect = useRef(false);
 
   // Check wallet availability
   const [isXverseAvailable, setIsXverseAvailable] = useState(false);
@@ -112,26 +113,12 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
     setBitcoinWalletType(null);
   }, []);
 
-  // Starknet wallet connection
-  const connectStarknetWallet = useCallback(async () => {
-    try {
-      const swo = await connect({ modalMode: "alwaysAsk", modalTheme: "dark" });
-
-      if (!swo) {
-        throw new Error("Failed to connect Starknet wallet");
-      }
-
+  const establishStarknetConnection = useCallback(
+    async (swo: StarknetWindowObject) => {
       const walletAccount = await WalletAccount.connect(
         new RpcProviderWithRetries({ nodeUrl: STARKNET_RPC_URL }),
         swo,
       );
-
-      const chainId = await wallet.requestChainId(walletAccount.walletProvider);
-
-      if (chainId !== STARKNET_CHAIN_ID) {
-        console.warn("Wrong Starknet network. Expected Sepolia.");
-        // Still connect but warn the user
-      }
 
       // Wait for address to be populated
       const maxAttempts = 50;
@@ -157,14 +144,29 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
           setStarknetSigner(newSigner);
         } else {
           setStarknetSigner(null);
+          setStarknetWalletData(null);
+          setStarknetBalance(null);
         }
       };
       swo.on("accountsChanged", listener);
+    },
+    [setStarknetBalance],
+  );
+
+  // Starknet wallet connection
+  const connectStarknetWallet = useCallback(async () => {
+    try {
+      const swo = await connect({ modalMode: "alwaysAsk", modalTheme: "dark" });
+
+      if (!swo) {
+        throw new Error("Failed to connect Starknet wallet");
+      }
+      await establishStarknetConnection(swo);
     } catch (error) {
       console.error("Failed to connect Starknet wallet:", error);
       throw error;
     }
-  }, []);
+  }, [establishStarknetConnection]);
 
   const disconnectStarknetWallet = useCallback(async () => {
     try {
@@ -216,6 +218,25 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
     isConnectingBitcoin,
     connectBitcoinWallet,
   ]);
+
+  // Attempt silent Starknet reconnect after refresh (no modal prompt).
+  useEffect(() => {
+    if (hasAttemptedStarknetAutoReconnect.current || starknetSigner) {
+      return;
+    }
+
+    hasAttemptedStarknetAutoReconnect.current = true;
+
+    (async () => {
+      try {
+        const swo = await connect({ modalMode: "neverAsk" });
+        if (!swo) return;
+        await establishStarknetConnection(swo);
+      } catch {
+        // Silent reconnect should fail quietly.
+      }
+    })();
+  }, [establishStarknetConnection, starknetSigner]);
 
   useEffect(() => {
     refreshStrkBalance();
