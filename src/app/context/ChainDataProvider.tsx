@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import { ChainDataContext } from "./ChainDataContext";
 import { XverseBitcoinWallet } from "@/lib/bitcoin/XverseBitcoinWallet";
 import { UnisatBitcoinWallet } from "@/lib/bitcoin/UnisatBitcoinWallet";
@@ -24,6 +30,29 @@ const BITCOIN_NETWORK = BitcoinNetwork.TESTNET4;
 const BITCOIN_RPC_URL = "https://mempool.space/testnet4/api";
 const STARKNET_RPC_URL = process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? "";
 const STARKNET_CHAIN_ID = "0x534e5f5345504f4c4941"; // SN_SEPOLIA
+const STARKNET_AUTO_RECONNECT_KEY = "starkyield:starknet:auto-reconnect";
+
+function setStarknetAutoReconnectEnabled(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    if (enabled) {
+      window.localStorage.setItem(STARKNET_AUTO_RECONNECT_KEY, "1");
+    } else {
+      window.localStorage.removeItem(STARKNET_AUTO_RECONNECT_KEY);
+    }
+  } catch {
+    // Ignore storage errors; wallet behavior still works without persistence.
+  }
+}
+
+function isStarknetAutoReconnectEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(STARKNET_AUTO_RECONNECT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export function ChainDataProvider({ children }: { children: React.ReactNode }) {
   // Get store state
@@ -162,6 +191,7 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Failed to connect Starknet wallet");
       }
       await establishStarknetConnection(swo);
+      setStarknetAutoReconnectEnabled(true);
     } catch (error) {
       console.error("Failed to connect Starknet wallet:", error);
       throw error;
@@ -174,6 +204,7 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
       setStarknetSigner(null);
       setStarknetWalletData(null);
       setStarknetBalance(null);
+      setStarknetAutoReconnectEnabled(false);
     } catch (error) {
       console.error("Failed to disconnect Starknet wallet:", error);
     }
@@ -222,6 +253,9 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
   // Attempt silent Starknet reconnect after refresh (no modal prompt).
   useEffect(() => {
     if (hasAttemptedStarknetAutoReconnect.current || starknetSigner) {
+      return;
+    }
+    if (!isStarknetAutoReconnectEnabled()) {
       return;
     }
 

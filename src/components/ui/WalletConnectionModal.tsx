@@ -25,6 +25,7 @@ const WalletConnectionModal: React.FC<WalletConnectionModalProps> = ({
     isUniSatAvailable,
     connectBitcoin,
     disconnectBitcoin,
+    disconnectStarknet,
   } = useWallet();
 
   const [isConnectingXverse, setIsConnectingXverse] = useState(false);
@@ -70,9 +71,10 @@ const WalletConnectionModal: React.FC<WalletConnectionModalProps> = ({
   };
 
   const handleStarknetDisconnect = async () => {
-    if (starknetChain?.disconnect) {
-      await starknetChain.disconnect();
-    }
+    await Promise.all([
+      starknetChain?.disconnect ? starknetChain.disconnect() : undefined,
+      disconnectStarknet(),
+    ]);
   };
 
   const handleDisconnectAll = async () => {
