@@ -30,9 +30,10 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
     starknetAddress: storedStarknetAddress,
     detectProviders,
   } = useWallet();
-  const starknetAddress = chainData.STARKNET?.wallet?.address || storedStarknetAddress;
+  const starknetAddress =
+    chainData.STARKNET?.wallet?.address || storedStarknetAddress;
   const hasAnyWalletConnected = Boolean(
-    bitcoinPaymentAddress || starknetAddress || stacksAddress
+    bitcoinPaymentAddress || starknetAddress || stacksAddress,
   );
 
   const short = (
@@ -86,10 +87,10 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
           <div className="flex items-center">
             <Link href="/">
               <Image
-                src="/onesat.svg"
+                src="/logo.svg"
                 alt="StarkYield Logo"
-                width={128}
-                height={128}
+                width={50}
+                height={50}
               />
             </Link>
           </div>

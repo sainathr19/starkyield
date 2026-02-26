@@ -1,25 +1,31 @@
-import React from 'react';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface HeroSectionProps {
-    className?: string;
+  className?: string;
 }
 
 const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
-    return (
-        <section className={cn('w-full px-3 xs:px-4 sm:px-6 lg:px-8 py-6 xs:py-8 md:py-12', className)}>
-            <div className="max-w-7xl mx-auto">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-6 xs:gap-8 lg:gap-12">
-                    <h1 className="font-mono text-xl xs:text-2xl sm:text-3xl lg:text-5xl leading-tight text-center sm:text-left">
-                        Stake BTC and STRK on Starknet.
-                        </h1>
-                    <p className="font-mono text-xs xs:text-sm sm:text-md xl:text-lg max-w-md text-center sm:text-right">
-                        OneSat is your staking home for BTC and STRK, powered by Starkzap.
-                    </p>
-                </div>
-            </div>
-        </section>
-    );
+  return (
+    <section
+      className={cn(
+        "w-full px-3 xs:px-4 sm:px-6 lg:px-8 py-6 xs:py-8 md:py-12",
+        className,
+      )}
+    >
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 xs:gap-8 lg:gap-12">
+          <h1 className="font-mono text-xl xs:text-2xl sm:text-3xl lg:text-5xl leading-tight text-center sm:text-left">
+            Stake BTC and STRK on Starknet.
+          </h1>
+          <p className="font-mono text-xs xs:text-sm sm:text-md xl:text-lg max-w-md text-center sm:text-right">
+            StarkYield is your staking home for BTC and STRK, powered by
+            StarkZap.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
 };
 
 export default HeroSection;
