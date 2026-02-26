@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/Toast";
 import { ChainDataContext } from "@/app/context/ChainDataContext";
 import { useStakingPools } from "@/hooks/useStakingPools";
 import { useStake } from "@/hooks/useStake";
+import { getAddressExplorerUrl } from "@/lib/staking/explorer";
 import { useWallet } from "@/store/useWallet";
 
 export default function Earn() {
@@ -83,8 +84,21 @@ export default function Earn() {
           </p>
           <div className="text-xs font-mono text-gray-600">
             {hasStarknetConnected
-              ? `Connected: ${starknetAddress}`
+              ? "Connected:"
               : "Connect Starknet wallet to stake"}
+            {hasStarknetConnected && starknetAddress && (
+              <>
+                {" "}
+                <a
+                  href={getAddressExplorerUrl(starknetAddress)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-teal-700 underline break-all"
+                >
+                  {starknetAddress}
+                </a>
+              </>
+            )}
           </div>
         </Card>
 
@@ -150,8 +164,16 @@ export default function Earn() {
             </div>
 
             {selectedPool && (
-              <div className="text-xs font-mono text-gray-600 break-all">
-                Pool: {selectedPool.poolContract}
+              <div className="text-xs font-mono text-gray-600 break-all relative z-10">
+                Pool:{" "}
+                <a
+                  href={getAddressExplorerUrl(selectedPool.poolContract)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-teal-700 underline relative z-10"
+                >
+                  {selectedPool.poolContract}
+                </a>
               </div>
             )}
 

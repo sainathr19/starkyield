@@ -6,6 +6,10 @@ import type { Address } from "starkzap";
 import { ChainDataContext } from "@/app/context/ChainDataContext";
 import MainLayout from "@/components/layout/MainLayout";
 import Card from "@/components/ui/Card";
+import {
+  getAddressExplorerUrl,
+  getTxExplorerUrl,
+} from "@/lib/staking/explorer";
 import { InjectedStarkzapWallet } from "@/lib/staking/InjectedStarkzapWallet";
 import {
   getValidatorPools,
@@ -216,7 +220,15 @@ export default function Portfolio() {
                   </p>
                 </div>
                 <p className="text-xs font-mono text-gray-600">
-                  Pool: {formatAddress(position.poolAddress)}
+                  Pool:{" "}
+                  <a
+                    href={getAddressExplorerUrl(position.poolAddress)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-teal-700 underline"
+                  >
+                    {formatAddress(position.poolAddress)}
+                  </a>
                 </p>
                 <p className="text-sm">
                   Staked: {formatTokenAmount(position.staked)}{" "}
@@ -247,10 +259,18 @@ export default function Portfolio() {
                     Staked {item.amount} {item.tokenSymbol}
                   </p>
                   <p className="text-xs font-mono text-gray-600">
-                    Pool: {formatAddress(item.poolAddress)}
+                    Pool:{" "}
+                    <a
+                      href={getAddressExplorerUrl(item.poolAddress)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-teal-700 underline"
+                    >
+                      {formatAddress(item.poolAddress)}
+                    </a>
                   </p>
                   <a
-                    href={item.explorerUrl}
+                    href={item.explorerUrl || getTxExplorerUrl(item.txHash)}
                     target="_blank"
                     rel="noreferrer"
                     className="text-xs font-mono text-teal-700 underline break-all"
