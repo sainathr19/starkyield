@@ -4,6 +4,7 @@ contracts/target
 api/settings.json
 vault-watcher/settings.json
 node_modules/
+.yarn/install-state.gz
 dist/
 .next/
 
