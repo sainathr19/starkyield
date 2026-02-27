@@ -10,8 +10,15 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StarkYield - One click, one stake, one journey to yield",
-  description: "Deposit native BTC (on-chain or Lightning) and start earning in one click – no wrapping, no hassle.",
+  title: "StarkYield – Starknet Native Staking",
+  description:
+    "Stake STRK, ETH, and other tokens on Starknet. Earn yield through validator pools with Starkzap – simple, on-chain staking.",
+  keywords: ["Starknet", "staking", "STRK", "yield", "Starkzap"],
+  openGraph: {
+    title: "StarkYield – Starknet Native Staking",
+    description:
+      "Stake STRK, ETH, and other tokens on Starknet. Earn yield through validator pools with Starkzap.",
+  },
   icons: {
     icon: "/logo.svg",
     shortcut: "/logo.svg",
