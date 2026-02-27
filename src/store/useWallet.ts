@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { connect, disconnect } from "@starknet-io/get-starknet";
-import { WalletAccount } from "starknet";
+import { RpcProvider, WalletAccount } from "starknet";
 
 type NumericString = string;
 
@@ -83,10 +83,8 @@ export const useWallet = create<WalletState>()(
             throw new Error("Failed to connect Starknet wallet");
           }
 
-          const walletAccount = await WalletAccount.connect(
-            { nodeUrl: STARKNET_RPC_URL },
-            swo,
-          );
+          const provider = new RpcProvider({ nodeUrl: STARKNET_RPC_URL });
+          const walletAccount = await WalletAccount.connect(provider, swo);
 
           const maxAttempts = 50;
           for (let i = 0; i < maxAttempts; i++) {
