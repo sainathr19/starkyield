@@ -28,15 +28,6 @@ export const formatCurrency = (value: number): string => {
 };
 
 /**
- * Format percentage value
- * @param value - Decimal value (e.g., 0.05 for 5%)
- * @returns Formatted percentage string (e.g., "5.00%")
- */
-export const formatPercent = (value: number): string => {
-    return `${(value * 100).toFixed(2)}%`;
-};
-
-/**
  * Format number with appropriate suffixes (K, M)
  * @param value - Numeric value to format
  * @returns Formatted number string (e.g., "1.23K", "2.45M")

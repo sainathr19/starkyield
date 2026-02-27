@@ -4,7 +4,7 @@ import { useCallback, useContext, useEffect, useState } from "react";
 import type { Address, Token } from "starkzap";
 
 import { ChainDataContext } from "@/app/context/ChainDataContext";
-import { InjectedStarkzapWallet } from "@/lib/staking/InjectedStarkzapWallet";
+import { useInjectedStarkzapWallet } from "@/hooks/useInjectedStarkzapWallet";
 import { parseStakeAmount } from "@/lib/staking/starkzapClient";
 import { useWallet } from "@/store/useWallet";
 
@@ -76,6 +76,7 @@ function extractStakingErrorMessage(err: unknown): string {
 
 export function useStake(): UseStakeResult {
   const chainData = useContext(ChainDataContext);
+  const starknetSigner = chainData.STARKNET?.wallet?.instance;
   const { setStarknetBalance, addStakeHistory } = useWallet();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,15 +84,7 @@ export function useStake(): UseStakeResult {
     null,
   );
 
-  const starknetSigner = chainData.STARKNET?.wallet?.instance;
-
-  const getInjectedWallet = useCallback(async () => {
-    const account = (starknetSigner as { account?: unknown } | null)?.account;
-    if (!account) {
-      throw new Error("Connect your Starknet wallet to continue");
-    }
-    return InjectedStarkzapWallet.fromAccount(account as never);
-  }, [starknetSigner]);
+  const getInjectedWallet = useInjectedStarkzapWallet();
 
   const refreshBalance = useCallback(
     async (token: Token | null) => {

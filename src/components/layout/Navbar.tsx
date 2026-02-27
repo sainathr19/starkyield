@@ -23,18 +23,13 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
   const pathname = usePathname();
   const chainData = React.useContext(ChainDataContext);
   const {
-    isXverseAvailable,
     isConnecting,
-    bitcoinPaymentAddress,
-    stacksAddress,
     starknetAddress: storedStarknetAddress,
     detectProviders,
   } = useWallet();
   const starknetAddress =
     chainData.STARKNET?.wallet?.address || storedStarknetAddress;
-  const hasAnyWalletConnected = Boolean(
-    bitcoinPaymentAddress || starknetAddress || stacksAddress,
-  );
+  const hasAnyWalletConnected = Boolean(starknetAddress);
 
   const short = (
     addr?: string | null,
@@ -64,21 +59,10 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
 
   const allNavigationItems = [...leftNavigationItems, ...rightNavigationItems];
 
-  // Pick the address for avatar and display, in same priority as before
-  const displayAddress =
-    bitcoinPaymentAddress || starknetAddress || stacksAddress;
-  const connectedWallets = [
-    bitcoinPaymentAddress
-      ? {
-          value: short(bitcoinPaymentAddress, 6, 6),
-        }
-      : null,
-    starknetAddress
-      ? {
-          value: short(starknetAddress, 6, 6),
-        }
-      : null,
-  ].filter(Boolean) as { value: string }[];
+  const displayAddress = starknetAddress;
+  const connectedWallets = starknetAddress
+    ? [{ value: short(starknetAddress, 6, 6) }]
+    : [];
 
   return (
     <nav className={cn("w-full px-4 sm:px-6 lg:px-8 py-6 relative", className)}>
@@ -279,25 +263,6 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
                     <div className="space-y-3">
                       <div className="bg-background p-4 rounded-lg border border-gray-200">
                         <div className="flex flex-col space-y-2 text-sm font-mono text-gray-700">
-                          <div className="flex items-center justify-between">
-                            <span className="opacity-70">Status</span>
-                            <span className="text-green-600 font-medium">
-                              {isXverseAvailable
-                                ? "Xverse detected"
-                                : "Xverse not detected"}
-                            </span>
-                          </div>
-                          {bitcoinPaymentAddress && (
-                            <div className="flex items-center justify-between">
-                              <span className="opacity-70">BTC</span>
-                              <span
-                                className="truncate max-w-[60%]"
-                                title={bitcoinPaymentAddress}
-                              >
-                                {short(bitcoinPaymentAddress, 6, 6)}
-                              </span>
-                            </div>
-                          )}
                           {starknetAddress && (
                             <div className="flex items-center justify-between">
                               <span className="opacity-70">Starknet</span>

@@ -12,11 +12,11 @@ import {
   formatTokenAmount,
   baseUnitsToDecimalString,
 } from "@/lib/utils";
+import { useInjectedStarkzapWallet } from "@/hooks/useInjectedStarkzapWallet";
 import {
   getAddressExplorerUrl,
   getTxExplorerUrl,
 } from "@/lib/staking/explorer";
-import { InjectedStarkzapWallet } from "@/lib/staking/InjectedStarkzapWallet";
 import {
   getValidatorPools,
   stakingValidators,
@@ -62,11 +62,7 @@ export default function HistoryPage() {
   const effectiveStakeHistory =
     onchainStakeHistory.length > 0 ? onchainStakeHistory : stakeHistory;
 
-  const getInjectedWallet = useCallback(async () => {
-    const account = (starknetSigner as { account?: unknown } | null)?.account;
-    if (!account) throw new Error("Connect your Starknet wallet to continue");
-    return InjectedStarkzapWallet.fromAccount(account as never);
-  }, [starknetSigner]);
+  const getInjectedWallet = useInjectedStarkzapWallet();
 
   const loadHistory = useCallback(async () => {
     if (isLoadingRef.current) return;
