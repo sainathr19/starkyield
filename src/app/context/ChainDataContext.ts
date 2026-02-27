@@ -1,33 +1,24 @@
-import { createContext } from 'react';
-import { StarknetSigner } from "@atomiqlabs/chain-starknet";
-import { BitcoinWallet } from "@atomiqlabs/sdk";
+import { createContext } from "react";
+import type { WalletAccount } from "starknet";
 
 export type ChainWalletData<T> = {
-    chain: {
-        name: string,
-        icon: string
-    },
-    wallet: {
-        name: string,
-        icon: string,
-        address?: string,
-        instance: T
-    } | null,
-    id: string,
-    disconnect?: () => Promise<void> | void,
-    connect?: () => Promise<void> | void,
-    changeWallet?: () => Promise<void> | void,
-    swapperOptions?: any
+  chain: {
+    name: string;
+    icon: string;
+  };
+  wallet: {
+    name: string;
+    icon: string;
+    address?: string;
+    instance: T;
+  } | null;
+  id: string;
+  disconnect?: () => Promise<void> | void;
+  connect?: () => Promise<void> | void;
 };
 
-type WalletTypes = {
-    BITCOIN: BitcoinWallet,
-    STARKNET: StarknetSigner
-};
-
-export type ChainIdentifiers = "BITCOIN" | "STARKNET";
+export type ChainIdentifiers = "STARKNET";
 
 export const ChainDataContext = createContext<{
-    [chain in ChainIdentifiers]?: ChainWalletData<WalletTypes[chain]>
+  STARKNET?: ChainWalletData<WalletAccount>;
 }>({});
-

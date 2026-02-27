@@ -49,7 +49,7 @@ export const Addresses = ({ poolData }: AddressesProps) => {
               height={16}
               className="pt-0.5 cursor-pointer hover:opacity-70 transition-opacity flex-shrink-0"
               onClick={() => copyToClipboard(ownerAddress, "owner")}
-              title={copiedAddress === "singleton" ? "Copied!" : "Click to copy"}
+              title={copiedAddress === "owner" ? "Copied!" : "Click to copy"}
             />
           </div>
           <span className="text-sm text-gray-600">Owner</span>

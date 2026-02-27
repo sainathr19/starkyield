@@ -186,11 +186,6 @@ export class InjectedStarkzapWallet extends BaseWallet {
       const result = await this.account.execute(calls);
       return new Tx(result.transaction_hash, this.provider, this.chainId);
     } catch (error) {
-      console.error("[wallet-execute-debug] execute failed", {
-        calls,
-        options,
-        error,
-      });
       throw new Error(extractExecuteErrorMessage(error));
     }
   }

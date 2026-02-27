@@ -8,10 +8,15 @@ import { ChainDataContext } from "@/app/context/ChainDataContext";
 import MainLayout from "@/components/layout/MainLayout";
 import Card from "@/components/ui/Card";
 import {
+  formatAddress,
+  formatTokenAmount,
+  baseUnitsToDecimalString,
+} from "@/lib/utils";
+import { useInjectedStarkzapWallet } from "@/hooks/useInjectedStarkzapWallet";
+import {
   getAddressExplorerUrl,
   getTxExplorerUrl,
 } from "@/lib/staking/explorer";
-import { InjectedStarkzapWallet } from "@/lib/staking/InjectedStarkzapWallet";
 import {
   getValidatorPools,
   stakingValidators,
@@ -26,34 +31,6 @@ type HistoryEventItem = {
   tokenSymbol: string;
   amount: string;
 };
-
-function formatAddress(address: string): string {
-  if (!address || address.length < 14) return address;
-  return `${address.slice(0, 8)}...${address.slice(-6)}`;
-}
-
-function formatTokenAmount(
-  value: string | number,
-  maxFractionDigits = 6,
-): string {
-  const numeric =
-    typeof value === "number" ? value : Number.parseFloat(value || "0");
-  if (!Number.isFinite(numeric)) return "0";
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: maxFractionDigits,
-  }).format(numeric);
-}
-
-function baseUnitsToDecimalString(raw: string, decimals: number): string {
-  const value = BigInt(raw);
-  const divisor = BigInt(10) ** BigInt(decimals);
-  const whole = value / divisor;
-  const frac = value % divisor;
-  if (frac === 0n) return whole.toString();
-  const fracPadded = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
-  return `${whole.toString()}.${fracPadded}`;
-}
 
 const DEFAULT_EVENT_LOOKBACK_BLOCKS = 50_000;
 const MAX_EVENT_PAGES_PER_POOL = 30;
@@ -85,11 +62,7 @@ export default function HistoryPage() {
   const effectiveStakeHistory =
     onchainStakeHistory.length > 0 ? onchainStakeHistory : stakeHistory;
 
-  const getInjectedWallet = useCallback(async () => {
-    const account = (starknetSigner as { account?: unknown } | null)?.account;
-    if (!account) throw new Error("Connect your Starknet wallet to continue");
-    return InjectedStarkzapWallet.fromAccount(account as never);
-  }, [starknetSigner]);
+  const getInjectedWallet = useInjectedStarkzapWallet();
 
   const loadHistory = useCallback(async () => {
     if (isLoadingRef.current) return;

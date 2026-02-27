@@ -16,21 +16,3 @@ export interface PoolCardData {
     exposureIcons: Currency[];
 }
 
-export const CURRENCIES = {
-    BITCOIN: {
-        name: "Bitcoin",
-        symbol: "BTC",
-        iconUrl: "https://garden-finance.imgix.net/token-images/bitcoin.svg"
-    }
-} as const;
-
-export const PROJECTS = {
-    STARKNET: {
-        name: "Starknet",
-        iconUrl: "/logo.svg"
-    },
-    RE7_LABS: {
-        name: "Re7 Labs",
-        iconUrl: "https://cdn.morpho.org/v2/assets/images/re7.png"
-    }
-} as const;

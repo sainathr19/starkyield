@@ -7,7 +7,6 @@
   --foreground: #2D2D2D;
 }
 
-/* something */
 body {
   background: var(--background);
   color: var(--foreground);

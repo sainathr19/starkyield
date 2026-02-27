@@ -1,47 +1,139 @@
 # StarkYield
 
-StarkYield is a Next.js app for Starknet-native staking, with `starkzap` as the core staking SDK.
+StarkYield is a Next.js app for Starknet-native staking, built on the [Starkzap](https://github.com/keep-starknet-strange/starkzap) SDK.
 
-## Why StarkZap
+## What is Starkzap?
 
-`starkzap` powers the entire staking flow in this project:
+**Starkzap** is a TypeScript SDK for integrating staking, DeFi, and token operations on Starknet. It provides:
 
-- creates the staking client for the selected network
-- exposes stakeable tokens and validator pools
-- parses token amounts safely with token decimals
-- executes stake transactions through an injected Starknet wallet
-- returns transaction metadata for explorer links and history
+- **Staking** — stake tokens in validator pools, claim rewards, exit positions
+- **Wallet integration** — works with injected Starknet wallets (ArgentX, Braavos, etc.)
+- **Token presets** — chain-aware token definitions (STRK, ETH, WBTC, etc.)
+- **Validator presets** — built-in mainnet and Sepolia validator lists
+- **Amount parsing** — safe decimal handling via `Amount.parse()`
 
-In short, StarkYield's staking logic is built around `starkzap`, not custom staking contracts directly.
+Docs: [docs.starknet.io/build/starkzap](https://docs.starknet.io/build/starkzap)
+
+---
+
+## Starkzap Features We Use
+
+### 1. SDK initialization & network config
+
+```typescript
+import { StarkZap, mainnetValidators, sepoliaValidators } from "starkzap";
+
+const stakingSdk = new StarkZap({
+  network: process.env.NEXT_PUBLIC_STARKNET_NETWORK || "sepolia",
+  // Optional: paymaster for gasless tx
+  paymaster: { nodeUrl: process.env.NEXT_PUBLIC_PAYMASTER_URL },
+});
+```
+
+### 2. Stakeable tokens & validator pools
+
+```typescript
+// Fetch all stakeable tokens (STRK, ETH, WBTC, etc.)
+const tokens = await stakingSdk.stakingTokens();
+
+// Fetch pools for a validator
+const pools = await stakingSdk.getStakerPools(stakerAddress);
+```
+
+### 3. Amount parsing (token decimals)
+
+```typescript
+import { Amount } from "starkzap";
+
+const parsedAmount = Amount.parse("10.5", token); // Handles decimals correctly
+```
+
+### 4. Token presets (STRK balance, etc.)
+
+```typescript
+import { getPresets } from "starkzap";
+
+const presets = getPresets(wallet.getChainId());
+const strk = presets.STRK;
+const balance = await wallet.balanceOf(strk);
+```
+
+### 5. Staking wallet adapter
+
+We wrap the connected Starknet account in `InjectedStarkzapWallet`, which extends Starkzap’s `BaseWallet`:
+
+```typescript
+import { InjectedStarkzapWallet } from "@/lib/staking/InjectedStarkzapWallet";
+
+const wallet = await InjectedStarkzapWallet.fromAccount(starknetAccount);
+await wallet.stake(poolAddress, parsedAmount);
+```
+
+### 6. Portfolio operations (positions, unstake, claim, exit)
+
+```typescript
+// Fetch user's position in a pool (staked, rewards, unpooling status)
+const position = await wallet.getPoolPosition(poolAddress);
+
+// Unstake intent (initiate withdrawal)
+const tx = await wallet.exitPoolIntent(poolAddress, parsedAmount);
+await tx.wait();
+
+// Complete withdrawal after cooldown
+const tx = await wallet.exitPool(poolAddress);
+await tx.wait();
+
+// Claim rewards (direct contract call)
+const tx = await wallet.execute([{
+  contractAddress: poolAddress,
+  entrypoint: "claim_rewards",
+  calldata: [wallet.address],
+}]);
+```
+
+### 7. Types we use
+
+| Type | Usage |
+|------|-------|
+| `Token` | Stakeable token (address, symbol, decimals) |
+| `Pool` | Validator pool (address, token, staker) |
+| `Amount` | Parsed amount with token decimals |
+| `Address` | Starknet address type |
+| `Call` | Transaction call for `execute()` |
+
+---
 
 ## Tech Stack
 
-- Next.js 15 + React 19
+- Next.js 16 + React 19
 - TypeScript
 - Tailwind CSS
 - Zustand
-- `starkzap`
+- `starkzap` (staking SDK)
 
 ## Project Structure
 
-- `src/app` - routes and app shell
-- `src/hooks` - staking hooks (`useStakingPools`, `useStake`)
-- `src/lib/staking/starkzapClient.ts` - StarkZap client setup + helper functions
-- `src/lib/staking/InjectedStarkzapWallet.ts` - adapter wallet for StarkZap execution
-- `src/store/useWallet.ts` - wallet and balance state
+| Path | Purpose |
+|------|---------|
+| `src/app` | Routes, layout, ChainDataProvider |
+| `src/hooks` | `useStakingPools`, `useStake`, `useInjectedStarkzapWallet` |
+| `src/lib/staking/starkzapClient.ts` | StarkZap client, `getValidatorPools`, `parseStakeAmount` |
+| `src/lib/staking/InjectedStarkzapWallet.ts` | Adapter: Starknet account → Starkzap `BaseWallet` |
+| `src/lib/staking/tokenUtils.ts` | `isBtcLikeToken`, `pickPreferredStakeToken` |
+| `src/store/useWallet.ts` | Wallet & balance state |
 
 ## Environment
 
-Create `.env.local` in project root:
+Create `.env.local`:
 
 ```bash
 NEXT_PUBLIC_STARKNET_NETWORK=sepolia
 NEXT_PUBLIC_STARKNET_RPC_URL=<your_rpc_url>
+# Optional: paymaster for gasless transactions
+NEXT_PUBLIC_PAYMASTER_URL=<paymaster_node_url>
 ```
 
-Notes:
-
-- `NEXT_PUBLIC_STARKNET_NETWORK` supports `sepolia` or `mainnet`.
+- `NEXT_PUBLIC_STARKNET_NETWORK`: `sepolia` or `mainnet`
 
 ## Local Development
 
@@ -52,53 +144,14 @@ npm run dev
 
 App runs at `http://localhost:3000`.
 
-## StarkZap Usage in This Codebase
+## Flow Overview
 
-### 1) Initialize StarkZap client
-
-`src/lib/staking/starkzapClient.ts` initializes a singleton:
-
-- reads network from env
-- exports:
-  - `stakingSdk`
-  - `getStakeableTokens()`
-  - `getValidatorPools(stakerAddress)`
-  - `parseStakeAmount(amount, token)`
-
-### 2) Load tokens and pools
-
-`src/hooks/useStakingPools.ts`:
-
-- fetches stakeable tokens via `getStakeableTokens()`
-- fetches pools via `getValidatorPools()`
-- auto-selects a default token (prefers Stark token when available)
-- tracks selected validator/token/pool for the Earn page
-
-### 3) Execute stake transactions
-
-`src/hooks/useStake.ts`:
-
-- wraps connected Starknet account into `InjectedStarkzapWallet`
-- fetches token balances via StarkZap wallet methods
-- parses stake amount via `parseStakeAmount()`
-- calls `wallet.stake(poolAddress, parsedAmount)`
-- waits for confirmation and stores tx history in app state
-
-## Common Extension Points
-
-- add analytics around staking lifecycle in `useStake`
-- customize token selection behavior in `src/lib/staking/tokenUtils.ts`
-- support additional wallet capabilities in `InjectedStarkzapWallet`
-- add richer validator/pool metadata rendering in Earn screens
+1. **Earn** — `useStakingPools` loads tokens/pools; `useStake` stakes via `wallet.stake()`
+2. **Portfolio** — Fetches positions via `wallet.getPoolPosition()` for each pool; supports unstake/claim/exit
+3. **History** — On-chain stake/claim events + local `stakeHistory` from `useWallet`
 
 ## Troubleshooting
 
-- **No pools shown**
-  - verify `NEXT_PUBLIC_STARKNET_NETWORK`
-  - verify wallet is connected on the same network
-- **Stake fails immediately**
-  - confirm positive amount and valid selected token/pool
-  - inspect browser console for raw `[stake-debug]` error output
-- **Balance does not refresh**
-  - reconnect Starknet wallet and retry
-  - verify RPC availability for selected network
+- **No pools shown** — Check `NEXT_PUBLIC_STARKNET_NETWORK` and that the wallet is on the same network
+- **Stake fails** — Ensure amount > 0 and a valid token/pool are selected
+- **Balance not updating** — Reconnect the Starknet wallet and retry

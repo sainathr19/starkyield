@@ -16,10 +16,16 @@ import MainLayout from "@/components/layout/MainLayout";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import {
+  formatAddress,
+  formatTokenAmount,
+  formatTokenAmountWithTiny,
+  baseUnitsToDecimalString,
+} from "@/lib/utils";
+import { useInjectedStarkzapWallet } from "@/hooks/useInjectedStarkzapWallet";
+import {
   getAddressExplorerUrl,
   getTxExplorerUrl,
 } from "@/lib/staking/explorer";
-import { InjectedStarkzapWallet } from "@/lib/staking/InjectedStarkzapWallet";
 import {
   getValidatorPools,
   stakingValidators,
@@ -47,48 +53,6 @@ type ClaimEventItem = {
   amount: string;
   createdAt: string;
 };
-
-function formatAddress(address: string): string {
-  if (!address || address.length < 14) return address;
-  return `${address.slice(0, 8)}...${address.slice(-6)}`;
-}
-
-function formatTokenAmount(
-  value: string | number,
-  maxFractionDigits = 6,
-): string {
-  const numeric =
-    typeof value === "number" ? value : Number.parseFloat(value || "0");
-  if (!Number.isFinite(numeric)) return "0";
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: maxFractionDigits,
-  }).format(numeric);
-}
-
-function formatTokenAmountWithTiny(
-  value: string | number,
-  maxFractionDigits = 6,
-): string {
-  const numeric =
-    typeof value === "number" ? value : Number.parseFloat(value || "0");
-  if (!Number.isFinite(numeric) || numeric <= 0) return "0";
-  const threshold = 1 / 10 ** maxFractionDigits;
-  if (numeric > 0 && numeric < threshold) {
-    return `<${threshold.toFixed(maxFractionDigits)}`;
-  }
-  return formatTokenAmount(numeric, maxFractionDigits);
-}
-
-function baseUnitsToDecimalString(raw: string, decimals: number): string {
-  const value = BigInt(raw);
-  const divisor = BigInt(10) ** BigInt(decimals);
-  const whole = value / divisor;
-  const frac = value % divisor;
-  if (frac === 0n) return whole.toString();
-  const fracPadded = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
-  return `${whole.toString()}.${fracPadded}`;
-}
 
 const DEFAULT_CLAIM_EVENT_LOOKBACK_BLOCKS = 50_000;
 const MAX_EVENT_PAGES_PER_POOL = 30;
@@ -147,13 +111,7 @@ export default function Portfolio() {
     return "Mixed tokens";
   }, [onchainClaimHistory]);
 
-  const getInjectedWallet = useCallback(async () => {
-    const account = (starknetSigner as { account?: unknown } | null)?.account;
-    if (!account) {
-      throw new Error("Connect your Starknet wallet to continue");
-    }
-    return InjectedStarkzapWallet.fromAccount(account as never);
-  }, [starknetSigner]);
+  const getInjectedWallet = useInjectedStarkzapWallet();
 
   const loadPortfolio = useCallback(async () => {
     if (isLoadingPortfolioRef.current) return;
@@ -261,19 +219,6 @@ export default function Portfolio() {
         .filter((item): item is PortfolioPosition => item !== null);
 
       setPositions(nextPositions);
-      console.log("[portfolio-debug] fetched positions", {
-        connected: starknetAddress,
-        count: nextPositions.length,
-        positions: nextPositions.map((p) => ({
-          poolAddress: p.poolAddress,
-          token: p.tokenSymbol,
-          staked: p.staked,
-          rewards: p.rewards,
-          rewardAddress: p.rewardAddress,
-          unpooling: p.unpooling,
-          unpoolTime: p.unpoolTime,
-        })),
-      });
 
       try {
         const provider = wallet.getProvider();
@@ -334,10 +279,6 @@ export default function Portfolio() {
             }
 
             if (seenTokens.has(nextToken)) {
-              console.warn(
-                "[portfolio-debug] stopping getEvents pagination due to repeated continuation token",
-                { poolAddress: position.poolAddress, token: nextToken },
-              );
               continuationToken = undefined;
               continue;
             }
@@ -346,26 +287,13 @@ export default function Portfolio() {
             continuationToken = nextToken;
             pageCount += 1;
             if (pageCount >= MAX_EVENT_PAGES_PER_POOL) {
-              console.warn(
-                "[portfolio-debug] stopping getEvents pagination due to max page cap",
-                {
-                  poolAddress: position.poolAddress,
-                  maxPages: MAX_EVENT_PAGES_PER_POOL,
-                },
-              );
               continuationToken = undefined;
             }
           } while (continuationToken);
         }
 
         setOnchainClaimHistory(chainClaimEvents);
-        console.log("[portfolio-debug] onchain claim events", {
-          fromBlockNumber,
-          latestBlock,
-          count: chainClaimEvents.length,
-        });
-      } catch (eventError) {
-        console.log("[portfolio-debug] onchain claim fetch failed", eventError);
+      } catch {
         setOnchainClaimHistory([]);
       }
     } catch (err) {
@@ -423,12 +351,6 @@ export default function Portfolio() {
         };
         const tx = await wallet.execute([claimCall]);
         await tx.wait();
-        console.log("[portfolio-debug] stored claim history item", {
-          txHash: tx.hash,
-          poolAddress: position.poolAddress,
-          token: position.tokenSymbol,
-          amount: latestRewards,
-        });
       });
     },
     [getInjectedWallet, runAction],
@@ -482,14 +404,6 @@ export default function Portfolio() {
       // surfaced in state
     });
   }, [loadPortfolio]);
-
-  useEffect(() => {
-    console.log("[portfolio-debug] claim history snapshot", {
-      onchainEntries: onchainClaimHistory.length,
-      onchainClaimHistory,
-      totalClaimedRaw: totalClaimed,
-    });
-  }, [onchainClaimHistory, totalClaimed]);
 
   return (
     <MainLayout className="px-4 sm:px-6 lg:px-8">

@@ -8,14 +8,6 @@ import React, {
   useRef,
 } from "react";
 import { ChainDataContext } from "./ChainDataContext";
-import { XverseBitcoinWallet } from "@/lib/bitcoin/XverseBitcoinWallet";
-import { UnisatBitcoinWallet } from "@/lib/bitcoin/UnisatBitcoinWallet";
-import { BitcoinNetwork } from "@atomiqlabs/sdk";
-import {
-  StarknetSigner,
-  StarknetFees,
-  RpcProviderWithRetries,
-} from "@atomiqlabs/chain-starknet";
 import {
   connect,
   disconnect,
@@ -26,10 +18,7 @@ import { useWallet } from "@/store/useWallet";
 import { getPresets } from "starkzap";
 import { InjectedStarkzapWallet } from "@/lib/staking/InjectedStarkzapWallet";
 
-const BITCOIN_NETWORK = BitcoinNetwork.TESTNET4;
-const BITCOIN_RPC_URL = "https://mempool.space/testnet4/api";
 const STARKNET_RPC_URL = process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? "";
-const STARKNET_CHAIN_ID = "0x534e5f5345504f4c4941"; // SN_SEPOLIA
 const STARKNET_AUTO_RECONNECT_KEY = "starkyield:starknet:auto-reconnect";
 
 function setStarknetAutoReconnectEnabled(enabled: boolean) {
@@ -41,7 +30,7 @@ function setStarknetAutoReconnectEnabled(enabled: boolean) {
       window.localStorage.removeItem(STARKNET_AUTO_RECONNECT_KEY);
     }
   } catch {
-    // Ignore storage errors; wallet behavior still works without persistence.
+    // Ignore storage errors
   }
 }
 
@@ -55,97 +44,19 @@ function isStarknetAutoReconnectEnabled(): boolean {
 }
 
 export function ChainDataProvider({ children }: { children: React.ReactNode }) {
-  // Get store state
-  const { bitcoinWalletType: storeBitcoinWalletType, setStarknetBalance } =
-    useWallet();
+  const { setStarknetBalance, setStarknetAddress } = useWallet();
 
-  // Bitcoin wallet state
-  const [bitcoinWallet, setBitcoinWallet] = useState<
-    XverseBitcoinWallet | UnisatBitcoinWallet | null
-  >(null);
-  const [bitcoinWalletType, setBitcoinWalletType] = useState<
-    "xverse" | "unisat" | null
-  >(null);
-  const [isConnectingBitcoin, setIsConnectingBitcoin] = useState(false);
-
-  // Starknet wallet state
-  const [starknetSigner, setStarknetSigner] = useState<StarknetSigner | null>(
+  const [starknetAccount, setStarknetAccount] = useState<WalletAccount | null>(
     null,
   );
   const [starknetWalletData, setStarknetWalletData] =
     useState<StarknetWindowObject | null>(null);
   const hasAttemptedStarknetAutoReconnect = useRef(false);
 
-  // Check wallet availability
-  const [isXverseAvailable, setIsXverseAvailable] = useState(false);
-  const [isUnisatAvailable, setIsUnisatAvailable] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    // Check for Bitcoin wallets
-    const checkWallets = () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const hasXverse = Boolean((window as any).BitcoinProvider);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const hasUnisat = Boolean((window as any).unisat);
-
-      setIsXverseAvailable(hasXverse);
-      setIsUnisatAvailable(hasUnisat);
-    };
-
-    checkWallets();
-
-    // Recheck after a delay (some wallets inject asynchronously)
-    const timer = setTimeout(checkWallets, 1000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Bitcoin wallet connection
-  const connectBitcoinWallet = useCallback(
-    async (walletType: "xverse" | "unisat") => {
-      if (isConnectingBitcoin || bitcoinWallet) {
-        return;
-      }
-
-      try {
-        setIsConnectingBitcoin(true);
-
-        let wallet: XverseBitcoinWallet | UnisatBitcoinWallet;
-
-        if (walletType === "xverse") {
-          wallet = await XverseBitcoinWallet.connect(
-            BITCOIN_NETWORK,
-            BITCOIN_RPC_URL,
-          );
-        } else {
-          wallet = await UnisatBitcoinWallet.connect(
-            BITCOIN_NETWORK,
-            BITCOIN_RPC_URL,
-          );
-        }
-
-        setBitcoinWallet(wallet);
-        setBitcoinWalletType(walletType);
-      } catch (error) {
-        console.error(`Failed to connect ${walletType} wallet:`, error);
-        throw error;
-      } finally {
-        setIsConnectingBitcoin(false);
-      }
-    },
-    [isConnectingBitcoin, bitcoinWallet],
-  );
-
-  const disconnectBitcoinWallet = useCallback(() => {
-    setBitcoinWallet(null);
-    setBitcoinWalletType(null);
-  }, []);
-
   const establishStarknetConnection = useCallback(
     async (swo: StarknetWindowObject) => {
       const walletAccount = await WalletAccount.connect(
-        new RpcProviderWithRetries({ nodeUrl: STARKNET_RPC_URL }),
+        { nodeUrl: STARKNET_RPC_URL },
         swo,
       );
 
@@ -162,27 +73,24 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
-      const signer = new StarknetSigner(walletAccount);
-      setStarknetSigner(signer);
+      setStarknetAccount(walletAccount);
       setStarknetWalletData(swo);
+      setStarknetAddress(walletAccount.address, swo.name);
 
-      // Listen for account changes
-      const listener = (accounts: string[] | undefined) => {
+      swo.on("accountsChanged", (accounts: string[] | undefined) => {
         if (accounts && accounts.length > 0) {
-          const newSigner = new StarknetSigner(walletAccount);
-          setStarknetSigner(newSigner);
+          setStarknetAccount(walletAccount);
         } else {
-          setStarknetSigner(null);
+          setStarknetAccount(null);
           setStarknetWalletData(null);
           setStarknetBalance(null);
+          setStarknetAddress(null);
         }
-      };
-      swo.on("accountsChanged", listener);
+      });
     },
-    [setStarknetBalance],
+    [setStarknetBalance, setStarknetAddress],
   );
 
-  // Starknet wallet connection
   const connectStarknetWallet = useCallback(async () => {
     try {
       const swo = await connect({ modalMode: "alwaysAsk", modalTheme: "dark" });
@@ -201,24 +109,26 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
   const disconnectStarknetWallet = useCallback(async () => {
     try {
       await disconnect({ clearLastWallet: true });
-      setStarknetSigner(null);
+      setStarknetAccount(null);
       setStarknetWalletData(null);
       setStarknetBalance(null);
+      setStarknetAddress(null);
       setStarknetAutoReconnectEnabled(false);
     } catch (error) {
       console.error("Failed to disconnect Starknet wallet:", error);
     }
-  }, [setStarknetBalance]);
+  }, [setStarknetBalance, setStarknetAddress]);
 
   const refreshStrkBalance = useCallback(async () => {
-    if (!starknetSigner) {
+    if (!starknetAccount) {
       setStarknetBalance(null);
       return;
     }
 
     try {
-      const account = starknetSigner.account;
-      const wallet = await InjectedStarkzapWallet.fromAccount(account);
+      const wallet = await InjectedStarkzapWallet.fromAccount(
+        starknetAccount as never,
+      );
       const presets = getPresets(wallet.getChainId());
       const strk = presets.STRK;
       if (!strk) {
@@ -230,29 +140,11 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Failed to refresh STRK balance:", error);
     }
-  }, [setStarknetBalance, starknetSigner]);
+  }, [setStarknetBalance, starknetAccount]);
 
-  // Sync with store state - only connect if store has wallet type but we don't have wallet instance
-  // IMPORTANT: Avoid auto-connecting Xverse to prevent repeated popup prompts
+  // Attempt silent Starknet reconnect after refresh
   useEffect(() => {
-    if (
-      storeBitcoinWalletType &&
-      storeBitcoinWalletType !== "xverse" && // do not auto-connect Xverse to avoid popup spam
-      !bitcoinWallet &&
-      !isConnectingBitcoin
-    ) {
-      connectBitcoinWallet(storeBitcoinWalletType);
-    }
-  }, [
-    storeBitcoinWalletType,
-    bitcoinWallet,
-    isConnectingBitcoin,
-    connectBitcoinWallet,
-  ]);
-
-  // Attempt silent Starknet reconnect after refresh (no modal prompt).
-  useEffect(() => {
-    if (hasAttemptedStarknetAutoReconnect.current || starknetSigner) {
+    if (hasAttemptedStarknetAutoReconnect.current || starknetAccount) {
       return;
     }
     if (!isStarknetAutoReconnectEnabled()) {
@@ -267,98 +159,45 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
         if (!swo) return;
         await establishStarknetConnection(swo);
       } catch {
-        // Silent reconnect should fail quietly.
+        // Silent reconnect should fail quietly
       }
     })();
-  }, [establishStarknetConnection, starknetSigner]);
+  }, [establishStarknetConnection, starknetAccount]);
 
   useEffect(() => {
     refreshStrkBalance();
-    if (!starknetSigner) return;
+    if (!starknetAccount) return;
 
     const id = setInterval(refreshStrkBalance, 30000);
     return () => clearInterval(id);
-  }, [refreshStrkBalance, starknetSigner]);
+  }, [refreshStrkBalance, starknetAccount]);
 
-  // Prepare context value
   const contextValue = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const value: any = {};
-
-    // Bitcoin chain data
-    value.BITCOIN = {
-      chain: {
-        name: "Bitcoin",
-        icon: "/icons/bitcoin.svg",
-      },
-      wallet: bitcoinWallet
-        ? {
-            name: bitcoinWallet.getName(),
-            icon: bitcoinWallet.getIcon(),
-            address: bitcoinWallet.getReceiveAddress(),
-            instance: bitcoinWallet,
-          }
-        : null,
-      id: "BITCOIN",
-      connect:
-        isXverseAvailable || isUnisatAvailable
-          ? async () => {
-              // Default to Xverse if available, otherwise UniSat
-              const walletType = isXverseAvailable ? "xverse" : "unisat";
-              await connectBitcoinWallet(walletType);
+    return {
+      STARKNET: {
+        chain: {
+          name: "Starknet",
+          icon: "/icons/starknet.svg",
+        },
+        wallet: starknetAccount
+          ? {
+              name: starknetWalletData?.name || "Starknet Wallet",
+              icon:
+                typeof starknetWalletData?.icon !== "string"
+                  ? starknetWalletData?.icon?.dark || "/icons/starknet.svg"
+                  : starknetWalletData?.icon,
+              address: starknetAccount.address,
+              instance: starknetAccount,
             }
-          : undefined,
-      disconnect: bitcoinWallet ? disconnectBitcoinWallet : undefined,
-      changeWallet:
-        bitcoinWallet && isXverseAvailable && isUnisatAvailable
-          ? async () => {
-              disconnectBitcoinWallet();
-              const newWalletType =
-                bitcoinWalletType === "xverse" ? "unisat" : "xverse";
-              await connectBitcoinWallet(newWalletType);
-            }
-          : undefined,
-    };
-
-    // Starknet chain data
-    value.STARKNET = {
-      chain: {
-        name: "Starknet",
-        icon: "/icons/starknet.svg",
-      },
-      wallet: starknetSigner
-        ? {
-            name: starknetWalletData?.name || "Starknet Wallet",
-            icon:
-              typeof starknetWalletData?.icon !== "string"
-                ? starknetWalletData?.icon?.dark || "/icons/starknet.svg"
-                : starknetWalletData?.icon,
-            address: starknetSigner.getAddress(),
-            instance: starknetSigner,
-          }
-        : null,
-      id: "STARKNET",
-      connect: connectStarknetWallet,
-      disconnect: starknetSigner ? disconnectStarknetWallet : undefined,
-      swapperOptions: {
-        rpcUrl: new RpcProviderWithRetries({ nodeUrl: STARKNET_RPC_URL }),
-        chainId: STARKNET_CHAIN_ID,
-        fees: new StarknetFees(
-          new RpcProviderWithRetries({ nodeUrl: STARKNET_RPC_URL }),
-        ),
+          : null,
+        id: "STARKNET",
+        connect: connectStarknetWallet,
+        disconnect: starknetAccount ? disconnectStarknetWallet : undefined,
       },
     };
-
-    return value;
   }, [
-    bitcoinWallet,
-    bitcoinWalletType,
-    isXverseAvailable,
-    isUnisatAvailable,
-    starknetSigner,
+    starknetAccount,
     starknetWalletData,
-    connectBitcoinWallet,
-    disconnectBitcoinWallet,
     connectStarknetWallet,
     disconnectStarknetWallet,
   ]);
