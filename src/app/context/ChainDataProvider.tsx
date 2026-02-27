@@ -13,7 +13,7 @@ import {
   disconnect,
   StarknetWindowObject,
 } from "@starknet-io/get-starknet";
-import { WalletAccount } from "starknet";
+import { RpcProvider, WalletAccount } from "starknet";
 import { useWallet } from "@/store/useWallet";
 import { getPresets } from "starkzap";
 import { InjectedStarkzapWallet } from "@/lib/staking/InjectedStarkzapWallet";
@@ -55,10 +55,8 @@ export function ChainDataProvider({ children }: { children: React.ReactNode }) {
 
   const establishStarknetConnection = useCallback(
     async (swo: StarknetWindowObject) => {
-      const walletAccount = await WalletAccount.connect(
-        { nodeUrl: STARKNET_RPC_URL },
-        swo,
-      );
+      const provider = new RpcProvider({ nodeUrl: STARKNET_RPC_URL });
+      const walletAccount = await WalletAccount.connect(provider, swo);
 
       // Wait for address to be populated
       const maxAttempts = 50;
