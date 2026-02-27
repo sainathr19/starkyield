@@ -8,6 +8,11 @@ import { ChainDataContext } from "@/app/context/ChainDataContext";
 import MainLayout from "@/components/layout/MainLayout";
 import Card from "@/components/ui/Card";
 import {
+  formatAddress,
+  formatTokenAmount,
+  baseUnitsToDecimalString,
+} from "@/lib/utils";
+import {
   getAddressExplorerUrl,
   getTxExplorerUrl,
 } from "@/lib/staking/explorer";
@@ -26,34 +31,6 @@ type HistoryEventItem = {
   tokenSymbol: string;
   amount: string;
 };
-
-function formatAddress(address: string): string {
-  if (!address || address.length < 14) return address;
-  return `${address.slice(0, 8)}...${address.slice(-6)}`;
-}
-
-function formatTokenAmount(
-  value: string | number,
-  maxFractionDigits = 6,
-): string {
-  const numeric =
-    typeof value === "number" ? value : Number.parseFloat(value || "0");
-  if (!Number.isFinite(numeric)) return "0";
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: maxFractionDigits,
-  }).format(numeric);
-}
-
-function baseUnitsToDecimalString(raw: string, decimals: number): string {
-  const value = BigInt(raw);
-  const divisor = BigInt(10) ** BigInt(decimals);
-  const whole = value / divisor;
-  const frac = value % divisor;
-  if (frac === 0n) return whole.toString();
-  const fracPadded = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
-  return `${whole.toString()}.${fracPadded}`;
-}
 
 const DEFAULT_EVENT_LOOKBACK_BLOCKS = 50_000;
 const MAX_EVENT_PAGES_PER_POOL = 30;

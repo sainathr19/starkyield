@@ -16,8 +16,7 @@ const WalletReconnector: React.FC = () => {
         // Attempt to reconnect wallets only once if we have stored wallet types and haven't attempted yet
         if ((bitcoinWalletType || starknetWalletName) && !hasAttemptedReconnect.current && !connected) {
             hasAttemptedReconnect.current = true;
-            console.log('Attempting to reconnect wallets...', { bitcoinWalletType, starknetWalletName });
-            
+
             // Add a small delay to ensure providers are detected first
             setTimeout(() => {
                 reconnectWallets();

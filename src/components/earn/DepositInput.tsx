@@ -16,33 +16,11 @@ import {
 import { ChainDataContext } from "@/app/context/ChainDataContext";
 import { useWallet } from "@/store/useWallet";
 import { depositAPI, assetAPI } from "@/lib/api";
+import { patchFetchForCors } from "@/lib/fetchPatch";
 import { getTokenImageUrl } from "@/lib/earnUtils";
 import { useToast } from "@/components/ui/Toast";
 
-// Patch fetch for CORS
-if (typeof window !== "undefined") {
-  const originalFetch = window.fetch;
-  window.fetch = function (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ): Promise<Response> {
-    const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.href
-          : input.url;
-    if (url.includes("mempool.space")) {
-      const proxiedUrl = url.replace("https://mempool.space", "/api/mempool");
-      return originalFetch(proxiedUrl, init);
-    }
-    if (url.includes("okx.com")) {
-      const proxiedUrl = url.replace("https://www.okx.com", "/api/okx");
-      return originalFetch(proxiedUrl, init);
-    }
-    return originalFetch(input, init);
-  };
-}
+patchFetchForCors();
 
 const factory = new SwapperFactory<[StarknetInitializerType]>([
   StarknetInitializer,
@@ -109,7 +87,6 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
       setIsInitializing(true);
       try {
         await swapper.init();
-        if (!cancelled) console.log("🚀 ===== SWAPPER INITIALIZED =====");
       } catch (e: any) {
         if (!cancelled)
           console.error(
@@ -493,11 +470,10 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
 
       const swapId = swap.getId();
 
-      const result = await depositAPI.updateAtomiqSwapId(
+      await depositAPI.updateAtomiqSwapId(
         depositResult.deposit_id,
         swapId,
       );
-      console.log("Result:", result);
 
       // Update Zustand store with swapId
       updatePendingDeposit(depositResult.deposit_id, {
@@ -529,8 +505,6 @@ export const DepositInput = ({ poolData }: DepositInputProps) => {
       const txId = await swap.sendBitcoinTransaction(
         bitcoinChainData.wallet!.instance,
       );
-
-      console.log("🆔 Transaction ID:", txId);
 
       // Send BTC tx hash to backend
       try {

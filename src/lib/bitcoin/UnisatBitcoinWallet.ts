@@ -56,8 +56,6 @@ export class UnisatBitcoinWallet extends BitcoinWalletBase {
         // Add SDK compatibility methods directly to the instance
         // (this as any).publicKey = pubkey;
         (this as any).getAccounts = () => this.toBitcoinWalletAccounts();
-        console.log('UniSat wallet constructor - added publicKey:', pubkey);
-        console.log('UniSat wallet constructor - added getAccounts method');
     }
     
 
@@ -77,11 +75,8 @@ export class UnisatBitcoinWallet extends BitcoinWalletBase {
             const address = accounts[0];
             const pubkey = await provider.getPublicKey();
             
-            // Check network
-            const network = await provider.getNetwork();
-            console.log("UniSat network:", network);
+            await provider.getNetwork();
 
-            console.log("UniSat wallet connected:", address);
             return new UnisatBitcoinWallet(address, pubkey, provider, bitcoinNetwork, rpcUrl);
         } catch (error) {
             console.error("Failed to connect UniSat wallet:", error);
@@ -119,8 +114,6 @@ export class UnisatBitcoinWallet extends BitcoinWalletBase {
     }
 
     async sendTransaction(address: string, amount: bigint, feeRate?: number): Promise<string> {
-        console.log(`UnisatBitcoinWallet: Sending ${amount} sats to ${address}`);
-        
         const { psbt } = await super._getPsbt(
             this.toBitcoinWalletAccounts(),
             address,
@@ -142,8 +135,7 @@ export class UnisatBitcoinWallet extends BitcoinWalletBase {
 
             // Broadcast the transaction
             const txId = await this.provider.pushPsbt(signedPsbtHex);
-            
-            console.log("Transaction sent:", txId);
+
             return txId;
         } catch (error) {
             console.error("Failed to send transaction:", error);

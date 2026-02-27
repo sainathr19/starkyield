@@ -84,9 +84,8 @@ const WalletConnectionModal: React.FC<WalletConnectionModalProps> = ({
         bitcoinPaymentAddress ? disconnectBitcoin() : undefined,
         connectedStarknetAddress ? handleStarknetDisconnect() : undefined,
       ]);
-    } catch (e) {
-      console.log("Error disconnecting all wallets:", e);
-      // Optionally log or handle errors
+    } catch {
+      // Error disconnecting - user can retry
     } finally {
       setIsDisconnectingAll(false);
     }

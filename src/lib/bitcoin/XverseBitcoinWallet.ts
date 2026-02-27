@@ -41,7 +41,6 @@ export class XverseBitcoinWallet extends BitcoinWalletBase {
         // Add SDK compatibility methods directly to the instance
         // Do NOT assign to publicKey; base class exposes read-only shape
         (this as any).getAccounts = () => this.toBitcoinWalletAccounts();
-        console.log('Xverse wallet constructor - added getAccounts method');
     }
 
     static async connect(bitcoinNetwork: BitcoinNetwork, rpcUrl: string): Promise<XverseBitcoinWallet> {
@@ -83,7 +82,6 @@ export class XverseBitcoinWallet extends BitcoinWalletBase {
         const isHex = pk !== '' && /^[0-9a-fA-F]+$/.test(pk);
         const looksCompressed = isHex && pk.length === 66 && (pk.startsWith('02') || pk.startsWith('03'));
         if (!looksCompressed) {
-            console.warn("Xverse public key missing/invalid; using fallback compressed public key for compatibility");
             // Fallback 33-byte compressed key (02 || 32 zero bytes). Works as placeholder for SDK structures.
             pk = '02' + '0'.repeat(64);
             // Store back into account object so downstream uses the fallback
@@ -100,7 +98,6 @@ export class XverseBitcoinWallet extends BitcoinWalletBase {
             walletType: 'software'
         };
 
-        console.log("Xverse wallet connected:", fullAccount.address);
         return new XverseBitcoinWallet(fullAccount, bitcoinNetwork, rpcUrl);
     }
 
@@ -133,8 +130,6 @@ export class XverseBitcoinWallet extends BitcoinWalletBase {
     }
 
     async sendTransaction(address: string, amount: bigint, feeRate?: number): Promise<string> {
-        console.log(`XverseBitcoinWallet: Sending ${amount} sats to ${address}`);
-        
         const { psbt } = await super._getPsbt(
             this.toBitcoinWalletAccounts(),
             address,
@@ -166,7 +161,6 @@ export class XverseBitcoinWallet extends BitcoinWalletBase {
                 }]
             },
             onFinish: (resp: { txId?: string; psbtBase64?: string }) => {
-                console.log("Xverse transaction signed:", resp);
                 txId = resp.txId || null;
                 psbtBase64 = resp.psbtBase64 || null;
             },
@@ -187,7 +181,6 @@ export class XverseBitcoinWallet extends BitcoinWalletBase {
             txId = await super._sendTransaction(txHex);
         }
 
-        console.log("Transaction sent:", txId);
         return txId;
     }
 

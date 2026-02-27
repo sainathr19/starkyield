@@ -151,7 +151,6 @@ export function useStake(): UseStakeResult {
 
         return { txHash: tx.hash, explorerUrl: tx.explorerUrl };
       } catch (err) {
-        console.error("[stake-debug] raw stake error", err);
         const message = extractStakingErrorMessage(err);
         setError(message);
         throw new Error(message);

@@ -46,7 +46,6 @@ export interface StakeHistoryItem {
 const BITCOIN_NETWORK = BitcoinNetwork.TESTNET4;
 const BITCOIN_RPC_URL = "https://mempool.space/testnet4/api";
 const STARKNET_RPC_URL = process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? "";
-// const STARKNET_CHAIN_ID = '0x534e5f5345504f4c4941'; // SN_SEPOLIA
 
 type WalletState = {
   // detection
@@ -237,8 +236,6 @@ export const useWallet = create<WalletState>()(
           } else {
             if (response.error.code === RpcErrorCode.USER_REJECTION) {
               // user cancelled, keep state
-            } else {
-              // alert(response.error.message || "Failed to connect wallet");
             }
           }
         } catch (err: unknown) {
@@ -246,11 +243,7 @@ export const useWallet = create<WalletState>()(
             error?: { message?: string };
             message?: string;
           };
-          const message =
-            error?.error?.message ||
-            error?.message ||
-            "Unexpected error while connecting wallet";
-          // alert(message);
+          // Error surfaced via state / UI
         } finally {
           set({ isConnecting: false });
         }
@@ -259,9 +252,6 @@ export const useWallet = create<WalletState>()(
       connectBitcoin: async (walletType: "xverse" | "unisat") => {
         const currentState = get();
         if (currentState.isConnecting || currentState.bitcoinPaymentAddress) {
-          console.log(
-            "Bitcoin wallet already connected or connecting, skipping..."
-          );
           return;
         }
 
@@ -289,8 +279,6 @@ export const useWallet = create<WalletState>()(
             bitcoinWalletType: walletType,
             connected: Boolean(address && get().starknetAddress),
           });
-
-          console.log(`${walletType} wallet connected via store:`, address);
         } catch (error) {
           console.error(`Failed to connect ${walletType} wallet:`, error);
           throw error;
@@ -302,9 +290,6 @@ export const useWallet = create<WalletState>()(
       connectStarknet: async () => {
         const currentState = get();
         if (currentState.isConnecting || currentState.starknetAddress) {
-          console.log(
-            "Starknet wallet already connected or connecting, skipping..."
-          );
           return;
         }
 
@@ -345,11 +330,6 @@ export const useWallet = create<WalletState>()(
               walletAccount.address && get().bitcoinPaymentAddress
             ),
           });
-
-          console.log(
-            "Starknet wallet connected via store:",
-            walletAccount.address
-          );
         } catch (error) {
           console.error("Failed to connect Starknet wallet:", error);
           throw error;
